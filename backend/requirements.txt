@@ -9,3 +9,5 @@ paddleocr
 langchain
 langchain-core
 alembic
+langchain-google-genai
+langchain-ollama

@@ -6,3 +6,6 @@ psycopg
 psycopg[binary]
 paddlepaddle
 paddleocr
+langchain
+langchain-core
+alembic

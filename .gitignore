@@ -5,11 +5,14 @@
 
 # Virtual environments
 .venv/
+**/venv/
+**/env/
+**/.venv/
 backend/.venv/
 backend/.venv-ocr/
 
 # Python cache and build artifacts
-__pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -26,11 +29,17 @@ build/
 
 # Local databases and uploads
 *.db
+*.db-journal
 *.sqlite3
 uploads/
+temp_ocr_*
+
+# Log files
+*.log
 
 # IDE and OS files
 .vscode/
 .idea/
 Thumbs.db
 .DS_Store
+

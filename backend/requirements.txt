@@ -1,0 +1,8 @@
+fastapi[standard]
+pydantic-settings
+pytest
+sqlalchemy
+psycopg
+psycopg[binary]
+paddlepaddle
+paddleocr

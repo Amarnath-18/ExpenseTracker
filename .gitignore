@@ -1,0 +1,36 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+backend/.venv/
+backend/.venv-ocr/
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local databases and uploads
+*.db
+*.sqlite3
+uploads/
+
+# IDE and OS files
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

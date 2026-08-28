@@ -86,6 +86,7 @@ class LLMService:
                             "- amount: Total paid amount as a decimal number. Do not include currency symbols.\n"
                             "- currency: ISO 3-letter currency code (e.g. 'INR', 'USD', 'EUR'). Default to 'INR' if not specified.\n"
                             "- category: Classify into 'Food', 'Travel', 'Shopping', 'Bills', 'Entertainment', 'Others'.\n"
+                            "- description: add description or notes if provided in the text.\n"
                             "- date: Date of transaction in YYYY-MM-DD format. Default to today's date if missing.\n"
                             "- payment_method: Payment mode (e.g., 'UPI', 'Credit Card', 'Cash', 'Net Banking')."
                         ),

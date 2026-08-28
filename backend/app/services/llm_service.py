@@ -1,7 +1,4 @@
 import logging
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama import ChatOllama  # 1. Import ChatOllama
 
 from app.core.config import settings
 from app.schemas.transaction import TransactionCreate
@@ -21,11 +18,12 @@ class LLMService:
         self._model = None
 
     @property
-    def model(self) -> ChatGoogleGenerativeAI | ChatOllama:
+    def model(self):
         """Lazily initialize LLM client depending on environment settings."""
         if self._model is None:
             # --- 2. Google Gemini Provider ---
             if settings.llm_provider == "google":
+                from langchain_google_genai import ChatGoogleGenerativeAI
                 if not settings.gemini_api_key:
                     raise LLMServiceError(
                         "GEMINI_API_KEY is not configured in settings."
@@ -40,6 +38,7 @@ class LLMService:
 
             # --- 3. Local Ollama Provider ---
             elif settings.llm_provider == "ollama":
+                from langchain_ollama import ChatOllama
                 logger.info(
                     f"Initializing Local Ollama Connection ({settings.llm_model})..."
                 )
@@ -72,6 +71,8 @@ class LLMService:
             raise LLMServiceError("Cannot format empty raw OCR text.")
 
         try:
+            from langchain_core.prompts import ChatPromptTemplate
+
             # Clean system prompt outlining precise formatting rules
             prompt = ChatPromptTemplate.from_messages(
                 [

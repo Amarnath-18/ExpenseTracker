@@ -4,12 +4,8 @@ pytest
 sqlalchemy
 psycopg
 psycopg[binary]
-paddlepaddle
-paddleocr
-langchain
-langchain-core
 alembic
-langchain-google-genai
-langchain-ollama
 pyjwt
 passlib[bcrypt]
+celery
+redis

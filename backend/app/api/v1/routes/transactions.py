@@ -16,6 +16,7 @@ from app.schemas.transaction import (
     TransactionListResponse,
     TransactionResponse,
 )
+from app.controllers.upload_job_controller import create_async_upload_job, get_job_status
 
 router = APIRouter()
 
@@ -72,3 +73,25 @@ def delete_transaction_endpoint(
 ) -> TransactionDeleteResponse:
     """Delete a transaction by its ID for the authenticated user."""
     return delete_transaction(db, transaction_id, current_user.id)
+
+@router.post(
+    "/upload/async",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def upload_transaction_image_async(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Upload a transaction receipt image to be processed asynchronously."""
+    job_id = create_async_upload_job(db, file, current_user.id)
+    return {"message": "Image uploaded successfully and is processing", "job_id": job_id}
+
+@router.get("/jobs/{job_id}", status_code=status.HTTP_200_OK)
+def check_job_status(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Check the processing status of an uploaded receipt."""
+    return get_job_status(db, job_id, current_user.id)

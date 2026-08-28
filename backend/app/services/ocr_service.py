@@ -1,5 +1,4 @@
 from app.schemas.ocr import OCRResponse
-from paddleocr import PaddleOCR
 import tempfile
 import os
 
@@ -13,9 +12,10 @@ class OCRService:
         self._ocr = None
 
     @property
-    def ocr(self) -> PaddleOCR:
+    def ocr(self):
         """Lazy-initialize PaddleOCR instance."""
         if self._ocr is None:
+            from paddleocr import PaddleOCR
             self._ocr = PaddleOCR(
                 use_doc_orientation_classify=False,
                 use_doc_unwarping= False,

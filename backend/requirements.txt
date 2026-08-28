@@ -11,3 +11,5 @@ langchain-core
 alembic
 langchain-google-genai
 langchain-ollama
+pyjwt
+passlib[bcrypt]

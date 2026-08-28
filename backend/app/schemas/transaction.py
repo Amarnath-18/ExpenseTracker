@@ -8,7 +8,8 @@ class TransactionBase(BaseModel):
     amount: Decimal = Field(gt=0)
     currency: str = Field("INR", max_length=10)
     category: str | None = Field(None, max_length=50)
-    date: dt.date = Field(default_factory=dt.date.today)  # Fixed: dt.date type
+    date: dt.date = Field(default_factory=dt.date.today)
+    description: str | None = Field(None)
     payment_method: str | None = Field(None, max_length=50)
     raw_ocr_text: str | None = None
 
@@ -27,3 +28,9 @@ class TransactionResponse(TransactionBase):
 class TransactionListResponse(BaseModel):
     items: list[TransactionResponse]
     total: int
+
+
+class TransactionDeleteResponse(BaseModel):
+    success: bool
+    message: str
+    id: uuid.UUID

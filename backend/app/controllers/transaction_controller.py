@@ -1,3 +1,6 @@
+import logging
+import uuid
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.schemas.transaction import (
     TransactionCreate,
@@ -9,23 +12,78 @@ from fastapi import HTTPException, UploadFile, status
 from app.services.ocr_service import ocr_service
 from app.services.llm_service import llm_service, LLMServiceError
 
+logger = logging.getLogger(__name__)
 
-def list_transactions(db:Session)->TransactionListResponse:
-    items = transaction_service.list_transactions(db)
-    return TransactionListResponse(
-        items = [TransactionResponse.model_validate(item) for item in items],
-        total = len(items)
-    )
 
-def create_transaction(db:Session, payload:TransactionCreate) -> TransactionResponse:
-    item = transaction_service.create_transaction(db, payload)
-    return TransactionResponse.model_validate(item)
+def list_transactions(db: Session, user_id: uuid.UUID) -> TransactionListResponse:
+    try:
+        items = transaction_service.list_transactions(db, user_id)
+        return TransactionListResponse(
+            items=[TransactionResponse.model_validate(item) for item in items],
+            total=len(items),
+        )
+    except SQLAlchemyError as e:
+        logger.error(f"Database error listing transactions for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A database error occurred while fetching transactions.",
+        )
+
+
+def create_transaction(
+    db: Session, payload: TransactionCreate, user_id: uuid.UUID
+) -> TransactionResponse:
+    try:
+        item = transaction_service.create_transaction(db, payload, user_id)
+        return TransactionResponse.model_validate(item)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating transaction for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A database error occurred while saving the transaction.",
+        )
+
+
+def delete_transaction(
+    db: Session, transaction_id: uuid.UUID, user_id: uuid.UUID
+) -> dict:
+    try:
+        success = transaction_service.delete_transaction(db, transaction_id, user_id)
+        if not success:
+            logger.warning(
+                f"Failed to delete transaction: ID {transaction_id} not found for user {user_id}."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Transaction with ID {transaction_id} not found.",
+            )
+
+        logger.info(f"Transaction {transaction_id} deleted successfully for user {user_id}.")
+        return {
+            "success": True,
+            "message": "Transaction deleted successfully.",
+            "id": transaction_id,
+        }
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error deleting transaction {transaction_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A database error occurred while trying to delete the transaction.",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error deleting transaction {transaction_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred.",
+        )
 
 
 async def create_transaction_from_image(
-    db: Session, file: UploadFile
+    db: Session, file: UploadFile, user_id: uuid.UUID
 ) -> TransactionResponse:
-    """Orchestrates image upload: runs OCR, structures text with LLM, and saves to DB."""
+    """Orchestrates image upload: runs OCR, structures text with LLM, and saves to DB for user."""
     # 1. Validate file type
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -66,6 +124,6 @@ async def create_transaction_from_image(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error during AI parsing: {str(e)}",
         )
-    # 5. Save to database using your service
-    item = transaction_service.create_transaction(db, structured_payload)
+    # 5. Save to database for authenticated user
+    item = transaction_service.create_transaction(db, structured_payload, user_id)
     return TransactionResponse.model_validate(item)

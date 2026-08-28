@@ -98,6 +98,10 @@ def test_upload_transaction_image(mock_format, mock_ocr) -> None:
 
     assert data["merchant"] == "Starbucks"
     assert data["amount"] == "12.50"
+    assert data["currency"] == "USD"
+    assert data["category"] == "Food"
+    assert data["payment_method"] == "UPI"
+    assert data["raw_ocr_text"] == "Paid to Starbucks 12.50 USD on UPI"
 
 
 def test_upload_transaction_invalid_file() -> None:

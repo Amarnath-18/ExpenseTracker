@@ -38,7 +38,7 @@ jobs:
           APP_API_V1_PREFIX: "/api/v1"
           APP_DATABASE_URL: "sqlite:///./test_expance_tracker.db"
           APP_GEMINI_API_KEY: "fake_gemini_api_key_for_testing"
-          APP_LLM_PROVIDER: "googlr"
+          APP_LLM_PROVIDER: "google"
           APP_LLM_MODEL: "gemini-3.5-flash-lite"
           APP_OLLAMA_BASE_URL: "http://localhost:11434"
         run: |

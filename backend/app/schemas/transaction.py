@@ -11,7 +11,7 @@ class TransactionBase(BaseModel):
     date: dt.date = Field(default_factory=dt.date.today)
     description: str | None = Field(None)
     payment_method: str | None = Field(None, max_length=50)
-    raw_ocr_text: str | None = None
+    raw_ocr_text: str | None = Field(default=None, exclude=True)
 
 
 class TransactionCreate(TransactionBase):

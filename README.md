@@ -8,6 +8,7 @@ A modern, production-ready FastAPI backend designed to track expenses. It accept
 
 * 📸 **Receipt OCR Scanner**: High-accuracy local text extraction from images using PaddleOCR.
 * 🤖 **Smart AI Structuring (LangChain)**: Extract structured details (merchant, amount, currency, category, date, payment mode) using Google Gemini or local Ollama models (e.g., Llama 3.2).
+* 🔐 **Secure Authentication**: Complete JWT-based user authentication, token refresh, and multi-device session management.
 * 🛡️ **Production-Ready MVC Architecture**: Clean division of concerns across API Routes, Controllers, Services, SQLAlchemy Models, and Pydantic Schemas.
 * 📊 **Robust PostgreSQL Storage**: Timezone-aware created timestamps, UUID/GUID primary keys, and automatic Alembic migrations.
 * 🧪 **Fast Automated Test Suite**: Fully mocked unit and integration tests for fast execution (<1 sec) without network or hardware overhead.
@@ -97,7 +98,21 @@ Apply database migrations using Alembic:
 
 ---
 
-## 🏃 Running the Application
+## 🐳 Docker Deployment
+
+The easiest way to run the backend is via Docker:
+
+```powershell
+# Build the image
+docker build -t expancetracker-backend .
+
+# Run the container
+docker run -p 8000:8000 --env-file .env expancetracker-backend
+```
+
+---
+
+## 🏃 Running the Application (Local)
 
 ### 1. Run local LLM service (Ollama)
 Ensure Ollama is installed and run Llama 3.2 locally:
@@ -127,7 +142,8 @@ Open **`http://127.0.0.1:8000/docs`** to access the Swagger interactive document
 - [x] Configure PostgreSQL, UUID primary keys, and Alembic migrations
 - [x] Implement LangChain AI structuring service (Gemini + Ollama)
 - [x] Connect OCR + AI into a unified transaction upload API (`POST /api/v1/transactions/upload`)
+- [x] Implement comprehensive Transaction CRUD operations
 - [x] Add comprehensive mocked unit testing suite
+- [x] Implement user authentication and multi-user tenancy
 - [ ] Build Frontend React/Next.js dashboard application
 - [ ] Connect frontend file-uploader to backend transaction API
-- [ ] Implement user authentication and multi-user tenancy

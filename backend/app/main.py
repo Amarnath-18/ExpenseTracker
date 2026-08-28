@@ -5,6 +5,7 @@ from app.db.session import engine
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.models.transaction import Transaction
+from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -34,6 +35,15 @@ def create_application() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan
     )
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for local development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     return app
 

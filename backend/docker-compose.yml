@@ -30,7 +30,6 @@ services:
   api:
     build:
       context: .
-      target: api
     ports:
       - "8000:8000"
     volumes:
@@ -51,7 +50,6 @@ services:
   worker:
     build:
       context: .
-      target: worker
     volumes:
       - .:/app
     depends_on:

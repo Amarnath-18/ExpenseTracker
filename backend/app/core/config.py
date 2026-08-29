@@ -47,7 +47,8 @@ class Settings(BaseSettings):
     # --- Redis Configuration ---
     redis_url: str = "redis://localhost:6379/0"
 
-    # --- Email & SMTP Configuration ---
+    # --- Email & Brevo Configuration ---
+    brevo_api_key: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None

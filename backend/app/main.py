@@ -10,15 +10,10 @@ import app.models  # Ensures all models and relationships are registered
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """
-    Manage the application lifecycle events.
+    Manage application lifecycle events.
 
-    - Startup: Creates all database tables defined in SQLAlchemy models if they do not already exist.
-    - Runtime: Yields control back to FastAPI to serve incoming requests.
-    - Shutdown: Executes cleanup logic (e.g., closing database connections) when the server stops.
+    Database schema migrations are managed exclusively by Alembic via entrypoint.sh.
     """
-    # Startup tasks
-    Base.metadata.create_all(bind=engine)
-    
     yield
     
     # Shutdown tasks (optional cleanup goes here)

@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
@@ -15,7 +16,7 @@ def process_receipt_task(job_id: str, file_path: str):
     """
     Background worker task to run OCR, extract data with LLM, and persist transaction & job status.
     """
-    logger.info(f"🚀 Worker picked up Job ID: {job_id}")
+    logger.info(f"Worker picked up Job ID: {job_id}")
     db = SessionLocal()
     try:
         job = db.query(UploadJob).filter(UploadJob.id == uuid.UUID(job_id)).first()
@@ -71,3 +72,10 @@ def process_receipt_task(job_id: str, file_path: str):
 
     finally:
         db.close()
+        # Clean up temporary uploaded file from disk
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                logger.info(f"Cleaned up temporary file: {file_path}")
+            except Exception as err:
+                logger.warning(f"Failed to delete temporary file {file_path}: {str(err)}")

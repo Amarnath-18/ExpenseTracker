@@ -27,6 +27,6 @@ async def extract_text_from_image(file:UploadFile) -> OCRResponse:
     except Exception as e:
         logger.error(f"OCR processing failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"OCR engine failed to parse image: {str(e)}"
         )

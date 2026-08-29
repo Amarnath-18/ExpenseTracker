@@ -103,12 +103,12 @@ async def create_transaction_from_image(
         raw_text = ocr_response.extracted_text
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"OCR engine failed to parse image: {str(e)}",
         )
     if not raw_text.strip():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="No readable text detected in the uploaded image.",
         )
     # 4. Format raw text using LLM

@@ -48,15 +48,16 @@ def add_transaction(
     "/upload",
     response_model=TransactionResponse,
     status_code=status.HTTP_201_CREATED,
+    deprecated=True,
 )
 async def upload_transaction_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db_session),
     current_user: User = Depends(get_current_active_user),
 ) -> TransactionResponse:
-    """Upload a transaction receipt image, scan it with OCR, format it with AI,
+    """[DEPRECATED] Upload a transaction receipt image synchronously.
 
-    and save the transaction to the database for the authenticated user.
+    Please use POST /api/v1/transactions/upload/async and poll GET /api/v1/transactions/jobs/{job_id} instead.
     """
     return await create_transaction_from_image(db, file, current_user.id)
 

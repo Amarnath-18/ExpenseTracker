@@ -319,8 +319,12 @@ const loadTransactions = async () => {
 
 document.getElementById('btn-refresh').addEventListener('click', loadTransactions);
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+const formatCurrency = (amount, currency = 'INR') => {
+    try {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR' }).format(amount);
+    } catch {
+        return `${currency || 'INR'} ${Number(amount).toFixed(2)}`;
+    }
 };
 
 const formatDate = (dateStr) => {
@@ -336,22 +340,23 @@ const renderTransactions = () => {
     let total = 0;
 
     if (transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center">No transactions found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center">No transactions found.</td></tr>`;
         document.getElementById('stat-total').textContent = formatCurrency(0);
         document.getElementById('stat-count').textContent = '0';
         return;
     }
 
     transactions.forEach(tx => {
-        total += parseFloat(tx.amount);
+        total += parseFloat(tx.amount || 0);
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${formatDate(tx.date)}</td>
             <td><strong>${tx.merchant || 'Unknown'}</strong></td>
+            <td><span class="text-muted" style="font-size: 0.9em;">${tx.description || '-'}</span></td>
             <td><span class="badge">${tx.category || 'Uncategorized'}</span></td>
             <td>${tx.payment_method || '-'}</td>
-            <td style="color: var(--danger); font-weight: 600;">${formatCurrency(tx.amount)}</td>
+            <td style="color: var(--danger); font-weight: 600;">${formatCurrency(tx.amount, tx.currency)}</td>
             <td>
                 <button class="btn btn-icon btn-delete" data-id="${tx.id}" title="Delete">
                     <i class='bx bx-trash text-danger' style="color: var(--danger)"></i>
@@ -447,13 +452,51 @@ forms.upload.addEventListener('submit', async (e) => {
     btnSubmitUpload.querySelector('.btn-text').classList.add('hidden');
 
     try {
-        await apiCall('/transactions/upload', {
+        const uploadRes = await apiCall('/transactions/upload/async', {
             method: 'POST',
             body: formData
         });
-        showToast("Receipt processed successfully!", "success");
+
+        console.log("Upload response:", uploadRes);
+        const jobId = uploadRes.job_id;
+        showToast("Receipt uploaded! Processing with OCR & AI in background...", "info");
         toggleModal('upload-modal', false);
-        loadTransactions();
+
+        // Reset submit button state for next open
+        btnSubmitUpload.disabled = false;
+        btnSubmitUpload.querySelector('.spinner').classList.add('hidden');
+        btnSubmitUpload.querySelector('.btn-text').classList.remove('hidden');
+
+        // Robust polling mechanism
+        let attempts = 0;
+        const maxAttempts = 60; // 60 attempts * 2s = 2 minutes timeout
+        const pollInterval = setInterval(async () => {
+            attempts++;
+            try {
+                const job = await apiCall(`/transactions/jobs/${jobId}`);
+                console.log(`[Job ${jobId}] Polling attempt ${attempts}:`, job);
+
+                const status = (job.status || '').toLowerCase();
+
+                if (status === 'completed') {
+                    clearInterval(pollInterval);
+                    showToast("Receipt processed successfully! Transaction added.", "success");
+                    loadTransactions();
+                } else if (status === 'failed') {
+                    clearInterval(pollInterval);
+                    const errorDetail = job.error_message ? `: ${job.error_message}` : '';
+                    showToast(`Processing failed${errorDetail}`, "error");
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(pollInterval);
+                    showToast("Processing timed out. Please check your transaction list later.", "error");
+                }
+            } catch (pollErr) {
+                console.error("Polling error:", pollErr);
+                clearInterval(pollInterval);
+                handleApiError(pollErr);
+            }
+        }, 2000);
+
     } catch (err) {
         handleApiError(err);
         btnSubmitUpload.disabled = false;

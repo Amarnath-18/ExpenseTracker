@@ -29,7 +29,9 @@ class LLMService:
                         "GEMINI_API_KEY is not configured in settings."
                     )
 
-                logger.info("Initializing Google Gemini API connection...")
+                logger.info(
+                    f"Initializing Google Gemini API connection (model: {settings.llm_model})..."
+                )
                 self._model = ChatGoogleGenerativeAI(
                     model=settings.llm_model,
                     google_api_key=settings.gemini_api_key,
@@ -40,7 +42,7 @@ class LLMService:
             elif settings.llm_provider == "ollama":
                 from langchain_ollama import ChatOllama
                 logger.info(
-                    f"Initializing Local Ollama Connection ({settings.llm_model})..."
+                    f"Initializing Local Ollama Connection (model: {settings.llm_model}, base_url: {settings.ollama_base_url})..."
                 )
                 self._model = ChatOllama(
                     model=settings.llm_model,
@@ -108,7 +110,9 @@ class LLMService:
                 )
             chain = prompt | structured_llm
 
-            logger.info("Invoking LLM structured output parsing...")
+            logger.info(
+                f"Invoking LLM structured output parsing using provider='{settings.llm_provider}' and model='{settings.llm_model}'..."
+            )
             result: TransactionCreate = chain.invoke({"ocr_text": ocr_text})
 
             # Preserve the original OCR text in the transaction for debugging

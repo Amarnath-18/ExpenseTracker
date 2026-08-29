@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60*24*7 # 7 days
     reset_token_expire_minutes: int = 30
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+    ]
 
     # --- LLM Configurations (Production Best Practice) ---
     gemini_api_key: str | None = None

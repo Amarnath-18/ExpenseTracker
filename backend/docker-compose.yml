@@ -41,6 +41,7 @@ services:
     environment:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - APP_DATABASE_URL=${APP_DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}}
+      - APP_CORS_ORIGINS
       - APP_GEMINI_API_KEY
       - APP_LLM_PROVIDER
       - APP_LLM_MODEL

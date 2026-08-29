@@ -1,6 +1,6 @@
 import datetime as dt
 import logging
-from fastapi import HTTPException, Response, status
+from fastapi import BackgroundTasks, HTTPException, Response, status
 import jwt
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -16,19 +16,25 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     MessageResponse,
     ResetPasswordRequest,
+    SendOTPRequest,
     Token,
     UserCreate,
     UserLogin,
     UserResponse,
+    VerifyOTPRequest,
 )
+from app.services.email_service import email_service
+from app.services.otp_service import otp_service
 from app.services.token_service import token_service
 from app.services.user_service import user_service
 
 logger = logging.getLogger(__name__)
 
 
-def signup(db: Session, payload: UserCreate) -> UserResponse:
-    """Registers a new user after verifying the email is unique."""
+def signup(
+    db: Session, payload: UserCreate, background_tasks: BackgroundTasks | None = None
+) -> UserResponse:
+    """Registers a new user after verifying the email is unique, and dispatches an OTP verification email."""
     existing_user = user_service.get_user_by_email(db, payload.email)
     if existing_user:
         logger.warning(f"Signup failed: Email {payload.email} is already registered.")
@@ -40,6 +46,20 @@ def signup(db: Session, payload: UserCreate) -> UserResponse:
     try:
         new_user = user_service.create_user(db, payload)
         logger.info(f"User created successfully: {new_user.email} (ID: {new_user.id})")
+
+        # Automatically generate and send OTP for email verification
+        try:
+            otp = otp_service.generate_otp()
+            saved, _ = otp_service.save_otp(new_user.email, otp)
+            if saved:
+                if background_tasks is not None:
+                    background_tasks.add_task(email_service.send_otp_email, new_user.email, otp)
+                else:
+                    email_service.send_otp_email(new_user.email, otp)
+                logger.info(f"Signup verification OTP queued for {new_user.email}")
+        except Exception as otp_err:
+            logger.warning(f"Failed to queue OTP on signup for {new_user.email}: {otp_err}")
+
         return UserResponse.model_validate(new_user)
     except SQLAlchemyError as e:
         logger.error(f"Error creating user {payload.email}: {str(e)}")
@@ -209,3 +229,88 @@ def reset_password(db: Session, payload: ResetPasswordRequest) -> MessageRespons
         success=True,
         message="Your password has been reset successfully. You can now log in.",
     )
+
+
+def send_verification_otp(
+    db: Session, payload: SendOTPRequest, background_tasks: BackgroundTasks
+) -> MessageResponse:
+    """Generates an OTP and queues email dispatch for verification."""
+    user = user_service.get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address.",
+        )
+
+    if user.is_verified:
+        return MessageResponse(
+            success=True,
+            message="This email address is already verified.",
+        )
+
+    otp = otp_service.generate_otp()
+    try:
+        success, msg = otp_service.save_otp(payload.email, otp)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=msg,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving OTP for {payload.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate verification code. Please ensure Redis is available.",
+        )
+
+    background_tasks.add_task(email_service.send_otp_email, payload.email, otp)
+    logger.info(f"Verification OTP queued for email: {payload.email}")
+
+    return MessageResponse(
+        success=True,
+        message="Verification code has been sent to your email address.",
+    )
+
+
+def verify_email_otp(db: Session, payload: VerifyOTPRequest) -> MessageResponse:
+    """Validates the OTP and marks the user account as verified."""
+    user = user_service.get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address.",
+        )
+
+    if user.is_verified:
+        return MessageResponse(
+            success=True,
+            message="This email address is already verified.",
+        )
+
+    try:
+        is_valid, msg = otp_service.verify_otp(payload.email, payload.otp)
+    except Exception as e:
+        logger.error(f"Error verifying OTP for {payload.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error processing verification code.",
+        )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    user.is_verified = True
+    db.commit()
+    db.refresh(user)
+    logger.info(f"User {user.email} successfully verified via OTP.")
+
+    return MessageResponse(
+        success=True,
+        message="Email successfully verified.",
+    )
+

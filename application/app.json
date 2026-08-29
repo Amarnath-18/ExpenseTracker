@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "application",
-    "slug": "application",
+    "name": "SpendPulse",
+    "slug": "expensetracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,18 +10,24 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.spendpulse.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0A0F1D",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fbe2a6e8-f3ce-446e-bd5f-cabf0df37692"
+      }
+    },
+    "owner": "team-zero-00"
   }
 }

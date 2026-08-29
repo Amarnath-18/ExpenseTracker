@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,52 +10,88 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import { loginUser } from '../api/auth';
-import { AuthContext } from '../../App';
+import { signupUser } from '../api/auth';
 import tokens from '../theme/tokens';
 import BackgroundGlow from '../components/BackgroundGlow';
 import GlassCard from '../components/GlassCard';
 import GlassInput from '../components/GlassInput';
 import GlassButton from '../components/GlassButton';
 
-export default function LoginScreen({ navigation }) {
+export default function SignupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Refs for keyboard next-field focus
+  const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
-  const { signIn } = useContext(AuthContext);
+  const confirmPasswordInputRef = useRef(null);
 
-  const handleLogin = async () => {
+  const validateForm = () => {
     if (!email.trim() || !password) {
-      setError('Please enter both email and password.');
+      setError('Please fill in email and password.');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return false;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSignup = async () => {
+    setError('');
+
+    if (!validateForm()) {
       return;
     }
 
     setLoading(true);
-    setError('');
 
     try {
-      const data = await loginUser({
+      // 1. Call Signup API (which automatically generates and sends OTP)
+      await signupUser({
+        email: email.trim(),
+        password,
+        full_name: fullName.trim() || undefined,
+      });
+
+      // 2. Navigate to OTP verification screen
+      navigation.navigate('VerifyOtp', {
         email: email.trim(),
         password,
       });
-
-      const token = data.access_token;
-      const refreshToken = data.refresh_token;
-
-      signIn(token, refreshToken);
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Signup error:', err);
       if (err.response && err.response.data && err.response.data.detail) {
         const detail = err.response.data.detail;
-        setError(typeof detail === 'string' ? detail : 'Invalid credentials.');
+        if (typeof detail === 'string') {
+          setError(detail);
+        } else if (Array.isArray(detail)) {
+          setError(detail.map((d) => d.msg).join(', '));
+        } else {
+          setError('Failed to create account. Please try again.');
+        }
       } else {
-        setError('Invalid email or password. Please try again.');
+        setError('Network error or server unavailable. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -73,7 +109,7 @@ export default function LoginScreen({ navigation }) {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: Math.max(insets.top + 20, 40),
+              paddingTop: Math.max(insets.top + 20, 36),
               paddingBottom: Math.max(insets.bottom + 24, 32),
             },
           ]}
@@ -81,33 +117,21 @@ export default function LoginScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.responsiveWrapper}>
-            {/* App Brand & Header */}
+            {/* Header branding */}
             <View style={styles.brandContainer}>
-              <View style={styles.logoRing}>
-                <LinearGradient
-                  colors={tokens.gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.logoGradient}
-                >
-                  <Ionicons name="wallet" size={32} color="#FFFFFF" />
-                </LinearGradient>
+              <View style={styles.badge}>
+                <Ionicons name="sparkles" size={12} color={tokens.colors.accentLight} />
+                <Text style={styles.badgeText}>GET STARTED</Text>
               </View>
-
-              <Text style={styles.brandTitle}>SpendPulse</Text>
+              <Text style={styles.brandTitle}>Create Account</Text>
               <Text style={styles.brandSubtitle}>
-                Smart financial tracking & instant receipt intelligence
+                Join in seconds to track expenses and scan receipts with AI
               </Text>
             </View>
 
-            {/* Glass Login Card */}
+            {/* Signup Glass Card */}
             <GlassCard variant="elevated" style={styles.card}>
-              <Text style={styles.cardHeading}>Sign In</Text>
-              <Text style={styles.cardSubheading}>
-                Enter your credentials to manage your expenses
-              </Text>
-
-              {/* Error Feedback */}
+              {/* Error Banner */}
               {error ? (
                 <View style={styles.errorBanner}>
                   <Ionicons name="alert-circle" size={18} color={tokens.colors.dangerLight} />
@@ -115,8 +139,22 @@ export default function LoginScreen({ navigation }) {
                 </View>
               ) : null}
 
-              {/* Inputs */}
               <GlassInput
+                label="Full Name"
+                placeholder="e.g. Alex Morgan"
+                value={fullName}
+                onChangeText={(val) => {
+                  setFullName(val);
+                  if (error) setError('');
+                }}
+                icon="person-outline"
+                autoCapitalize="words"
+                returnKeyType="next"
+                onSubmitEditing={() => emailInputRef.current?.focus()}
+              />
+
+              <GlassInput
+                ref={emailInputRef}
                 label="Email Address"
                 placeholder="name@example.com"
                 value={email}
@@ -136,7 +174,7 @@ export default function LoginScreen({ navigation }) {
               <GlassInput
                 ref={passwordInputRef}
                 label="Password"
-                placeholder="••••••••"
+                placeholder="Min. 6 characters"
                 value={password}
                 onChangeText={(val) => {
                   setPassword(val);
@@ -145,13 +183,30 @@ export default function LoginScreen({ navigation }) {
                 icon="lock-closed-outline"
                 secureTextEntry
                 required
+                helperText="Must contain at least 6 characters"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+              />
+
+              <GlassInput
+                ref={confirmPasswordInputRef}
+                label="Confirm Password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChangeText={(val) => {
+                  setConfirmPassword(val);
+                  if (error) setError('');
+                }}
+                icon="shield-checkmark-outline"
+                secureTextEntry
+                required
                 returnKeyType="done"
-                onSubmitEditing={handleLogin}
+                onSubmitEditing={handleSignup}
               />
 
               <GlassButton
-                title="Sign In"
-                onPress={handleLogin}
+                title="Create Account"
+                onPress={handleSignup}
                 loading={loading}
                 variant="primary"
                 size="lg"
@@ -161,17 +216,17 @@ export default function LoginScreen({ navigation }) {
               />
             </GlassCard>
 
-            {/* Footer / Switch Auth Link */}
+            {/* Footer switch to login */}
             <View style={styles.footerContainer}>
-              <Text style={styles.footerText}>Don’t have an account?</Text>
+              <Text style={styles.footerText}>Already have an account?</Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('Signup')}
+                onPress={() => navigation.navigate('Login')}
                 activeOpacity={0.7}
-                style={styles.signupLinkTouchable}
+                style={styles.loginLinkTouchable}
                 accessibilityRole="button"
-                accessibilityLabel="Navigate to Create Account screen"
+                accessibilityLabel="Navigate to Sign In screen"
               >
-                <Text style={styles.signupLink}> Create Account</Text>
+                <Text style={styles.loginLink}> Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -192,31 +247,30 @@ const styles = StyleSheet.create({
   },
   responsiveWrapper: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 460,
     alignSelf: 'center',
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: tokens.spacing.xl,
+    marginBottom: tokens.spacing.lg,
   },
-  logoRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: tokens.borderRadius.round,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: tokens.spacing.md,
-    ...tokens.shadows.primaryGlow,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    marginBottom: tokens.spacing.xs,
+    gap: 6,
   },
-  logoGradient: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    justifyContent: 'center',
-    alignItems: 'center',
+  badgeText: {
+    color: tokens.colors.accentLight,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   brandTitle: {
     fontSize: 28,
@@ -225,27 +279,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   brandSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: tokens.colors.textMuted,
     textAlign: 'center',
     marginTop: tokens.spacing.xs,
-    maxWidth: 290,
-    lineHeight: 20,
+    maxWidth: 320,
+    lineHeight: 19,
   },
   card: {
     padding: tokens.spacing.xl,
-  },
-  cardHeading: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: tokens.colors.text,
-    letterSpacing: -0.3,
-  },
-  cardSubheading: {
-    fontSize: 13,
-    color: tokens.colors.textMuted,
-    marginTop: 4,
-    marginBottom: tokens.spacing.lg,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -277,10 +319,10 @@ const styles = StyleSheet.create({
     color: tokens.colors.textMuted,
     fontSize: 14,
   },
-  signupLinkTouchable: {
+  loginLinkTouchable: {
     paddingVertical: tokens.spacing.xs,
   },
-  signupLink: {
+  loginLink: {
     color: tokens.colors.primaryLight,
     fontSize: 14,
     fontWeight: '700',

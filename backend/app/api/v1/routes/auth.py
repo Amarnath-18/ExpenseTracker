@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Response, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_active_user
 from app.controllers import auth_controller
@@ -8,10 +8,12 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     MessageResponse,
     ResetPasswordRequest,
+    SendOTPRequest,
     Token,
     UserCreate,
     UserLogin,
     UserResponse,
+    VerifyOTPRequest,
 )
 
 router = APIRouter()
@@ -23,10 +25,12 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
 )
 def register_user(
-    payload: UserCreate, db: Session = Depends(get_db_session)
+    payload: UserCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db_session),
 ) -> UserResponse:
-    """Register a new user account."""
-    return auth_controller.signup(db, payload)
+    """Register a new user account and dispatch verification OTP email."""
+    return auth_controller.signup(db, payload, background_tasks)
 
 
 @router.post("/login", response_model=Token)
@@ -85,9 +89,29 @@ def perform_password_reset(
     return auth_controller.reset_password(db, payload)
 
 
+@router.post("/send-otp", response_model=MessageResponse)
+def send_otp_endpoint(
+    payload: SendOTPRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db_session),
+) -> MessageResponse:
+    """Generate and dispatch a 6-digit OTP code to the user's email address."""
+    return auth_controller.send_verification_otp(db, payload, background_tasks)
+
+
+@router.post("/verify-otp", response_model=MessageResponse)
+def verify_otp_endpoint(
+    payload: VerifyOTPRequest,
+    db: Session = Depends(get_db_session),
+) -> MessageResponse:
+    """Verify an email address using the received 6-digit OTP code."""
+    return auth_controller.verify_email_otp(db, payload)
+
+
 @router.get("/me", response_model=UserResponse)
 def get_current_user_profile(
     current_user: User = Depends(get_current_active_user),
 ) -> UserResponse:
     """Get profile information for the currently authenticated user."""
     return UserResponse.model_validate(current_user)
+

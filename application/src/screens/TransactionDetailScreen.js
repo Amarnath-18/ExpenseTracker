@@ -1,171 +1,353 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { theme } from '../theme/colors';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+import { deleteTransaction } from '../api/transactions';
+import tokens from '../theme/tokens';
+import BackgroundGlow from '../components/BackgroundGlow';
+import GlassHeader from '../components/GlassHeader';
+import GlassCard from '../components/GlassCard';
+import GlassButton from '../components/GlassButton';
+import CategoryBadge from '../components/CategoryBadge';
 
 export default function TransactionDetailScreen({ route, navigation }) {
-  const { transaction } = route.params;
+  const { transaction } = route.params || {};
+  const [deleting, setDeleting] = useState(false);
+
+  if (!transaction) {
+    return (
+      <BackgroundGlow>
+        <GlassHeader
+          title="Details"
+          showBack
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Transaction not found.</Text>
+          <GlassButton
+            title="Go Back"
+            onPress={() => navigation.goBack()}
+            variant="secondary"
+            style={{ marginTop: tokens.spacing.md }}
+          />
+        </View>
+      </BackgroundGlow>
+    );
+  }
+
+  const formattedAmount = Number(parseFloat(transaction.amount) || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  const formattedDate = transaction.date
+    ? new Date(transaction.date).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'N/A';
+
+  const formattedTime = transaction.created_at
+    ? new Date(
+        transaction.created_at.endsWith('Z')
+          ? transaction.created_at
+          : `${transaction.created_at}Z`
+      ).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to delete this expense? This action cannot be reversed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await deleteTransaction(transaction.id);
+              navigation.goBack();
+            } catch (err) {
+              console.error('Delete transaction failed:', err);
+              Alert.alert('Error', 'Failed to delete transaction. Please try again.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Details</Text>
-        <View style={{ width: 60 }} />
-      </View>
+    <BackgroundGlow>
+      <GlassHeader
+        title="Transaction Details"
+        subtitle="Expense breakdown"
+        badge="RECORD"
+        showBack
+        onBack={() => navigation.goBack()}
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.amountBanner}>
-          <Text style={styles.merchantText}>{transaction.merchant || transaction.description || 'Unknown Expense'}</Text>
-          <Text style={styles.amountText}>${parseFloat(transaction.amount).toFixed(2)}</Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.responsiveWrapper}>
+          {/* Amount Hero Glass Card */}
+          <GlassCard variant="hero" style={styles.heroCard}>
+            <CategoryBadge
+              category={transaction.category || 'Other'}
+              size="lg"
+              iconOnly
+              style={styles.heroCategoryBadge}
+            />
 
-        <View style={styles.detailsCard}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Category</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{transaction.category || 'General'}</Text>
+            <Text style={styles.merchantName} numberOfLines={2}>
+              {transaction.merchant || transaction.description || 'Unknown Expense'}
+            </Text>
+
+            <View style={styles.amountRow}>
+              <Text style={styles.currencySymbol}>₹</Text>
+              <Text style={styles.amountValue}>{formattedAmount}</Text>
             </View>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date</Text>
-            <Text style={styles.detailValue}>{new Date(transaction.date).toLocaleDateString()}</Text>
-          </View>
-          <View style={styles.divider} />
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Payment Method</Text>
-            <Text style={styles.detailValue}>{transaction.payment_method || 'N/A'}</Text>
-          </View>
-          <View style={styles.divider} />
+            <View style={styles.statusPill}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>Completed Payment</Text>
+            </View>
+          </GlassCard>
 
-          {transaction.created_at && (
-            <>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Time Logged</Text>
-                <Text style={styles.detailValue}>
-                  {new Date(
-                    transaction.created_at.endsWith('Z') 
-                      ? transaction.created_at 
-                      : `${transaction.created_at}Z`
-                  ).toLocaleTimeString()}
+          {/* Detailed Info Grid Card */}
+          <GlassCard variant="default" style={styles.detailsCard}>
+            <Text style={styles.cardSectionHeading}>TRANSACTION METADATA</Text>
+
+            {/* Category Row */}
+            <View style={styles.detailRow}>
+              <View style={styles.rowLabelContainer}>
+                <Ionicons name="pricetag-outline" size={16} color={tokens.colors.primaryLight} />
+                <Text style={styles.detailLabel}>Category</Text>
+              </View>
+              <CategoryBadge category={transaction.category || 'Other'} size="md" />
+            </View>
+            <View style={styles.divider} />
+
+            {/* Date Row */}
+            <View style={styles.detailRow}>
+              <View style={styles.rowLabelContainer}>
+                <Ionicons name="calendar-outline" size={16} color={tokens.colors.primaryLight} />
+                <Text style={styles.detailLabel}>Date</Text>
+              </View>
+              <Text style={styles.detailValue}>{formattedDate}</Text>
+            </View>
+            <View style={styles.divider} />
+
+            {/* Payment Method Row */}
+            <View style={styles.detailRow}>
+              <View style={styles.rowLabelContainer}>
+                <Ionicons name="card-outline" size={16} color={tokens.colors.primaryLight} />
+                <Text style={styles.detailLabel}>Payment Method</Text>
+              </View>
+              <View style={styles.paymentMethodPill}>
+                <Text style={styles.paymentMethodText}>
+                  {transaction.payment_method || 'UPI / Other'}
                 </Text>
               </View>
-              <View style={styles.divider} />
-            </>
-          )}
+            </View>
+            <View style={styles.divider} />
 
-          <View style={styles.detailColumn}>
-            <Text style={styles.detailLabel}>Description</Text>
-            <Text style={styles.detailValueMultiline}>
-              {transaction.description || 'No description provided.'}
-            </Text>
-          </View>
+            {/* Time Logged */}
+            {formattedTime && (
+              <>
+                <View style={styles.detailRow}>
+                  <View style={styles.rowLabelContainer}>
+                    <Ionicons name="time-outline" size={16} color={tokens.colors.primaryLight} />
+                    <Text style={styles.detailLabel}>Time Logged</Text>
+                  </View>
+                  <Text style={styles.detailValue}>{formattedTime}</Text>
+                </View>
+                <View style={styles.divider} />
+              </>
+            )}
+
+            {/* Description / Notes */}
+            <View style={styles.descriptionSection}>
+              <View style={styles.rowLabelContainer}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={tokens.colors.primaryLight}
+                />
+                <Text style={styles.detailLabel}>Notes & Context</Text>
+              </View>
+              <Text style={styles.descriptionText}>
+                {transaction.description || 'No additional notes provided for this transaction.'}
+              </Text>
+            </View>
+          </GlassCard>
+
+          {/* Delete Action Button */}
+          <GlassButton
+            title="Delete Transaction"
+            onPress={handleDelete}
+            loading={deleting}
+            variant="danger"
+            size="lg"
+            icon="trash-outline"
+            style={styles.deleteButton}
+          />
         </View>
-
       </ScrollView>
-    </View>
+    </BackgroundGlow>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-    paddingTop: 60, // for notch
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: theme.spacing.xs,
-  },
-  backButtonText: {
-    color: theme.colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
   scrollContent: {
-    padding: theme.spacing.lg,
+    padding: tokens.spacing.md,
+    paddingBottom: 40,
   },
-  amountBanner: {
+  responsiveWrapper: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
+  heroCard: {
     alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    padding: tokens.spacing.xl,
+    marginBottom: tokens.spacing.md,
   },
-  merchantText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
+  heroCategoryBadge: {
+    marginBottom: tokens.spacing.md,
+  },
+  merchantName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: tokens.colors.text,
     textAlign: 'center',
+    marginBottom: tokens.spacing.xs,
   },
-  amountText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: theme.colors.danger,
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginVertical: tokens.spacing.xs,
+  },
+  currencySymbol: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: tokens.colors.dangerLight,
+    marginRight: 4,
+  },
+  amountValue: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: tokens.colors.text,
+    letterSpacing: -1,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: tokens.colors.successGlass,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: tokens.borderRadius.round,
+    borderWidth: 1,
+    borderColor: tokens.colors.successBorder,
+    marginTop: tokens.spacing.sm,
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: tokens.colors.success,
+  },
+  statusText: {
+    color: tokens.colors.successLight,
+    fontSize: 12,
+    fontWeight: '600',
   },
   detailsCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    padding: tokens.spacing.lg,
+    marginBottom: tokens.spacing.lg,
+  },
+  cardSectionHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: tokens.colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: tokens.spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
   },
-  detailColumn: {
-    paddingVertical: theme.spacing.sm,
+  rowLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   detailLabel: {
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: tokens.colors.textMuted,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 16,
-    color: theme.colors.text,
+    fontSize: 14,
+    color: tokens.colors.text,
     fontWeight: '600',
   },
-  detailValueMultiline: {
-    fontSize: 16,
-    color: theme.colors.text,
-    fontWeight: '500',
-    marginTop: theme.spacing.xs,
+  paymentMethodPill: {
+    backgroundColor: tokens.colors.glassLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: tokens.borderRadius.xs,
   },
-  badge: {
-    backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
-  },
-  badgeText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    textTransform: 'capitalize',
+  paymentMethodText: {
+    fontSize: 13,
+    color: tokens.colors.text,
     fontWeight: '600',
   },
   divider: {
     height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.sm,
+    backgroundColor: tokens.colors.glassBorder,
+    marginVertical: 4,
+  },
+  descriptionSection: {
+    paddingTop: tokens.spacing.sm,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: tokens.colors.textSecondary,
+    lineHeight: 20,
+    marginTop: tokens.spacing.xs + 2,
+  },
+  deleteButton: {
+    marginBottom: tokens.spacing.lg,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: tokens.spacing.xl,
+  },
+  errorText: {
+    fontSize: 16,
+    color: tokens.colors.textMuted,
   },
 });

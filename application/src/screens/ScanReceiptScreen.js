@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
-  Alert
+  Alert,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import apiClient from '../api/client';
-import { theme } from '../theme/colors';
+import tokens from '../theme/tokens';
+import BackgroundGlow from '../components/BackgroundGlow';
+import GlassHeader from '../components/GlassHeader';
+import GlassCard from '../components/GlassCard';
+import GlassButton from '../components/GlassButton';
 
 export default function ScanReceiptScreen() {
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
+  const [activeStep, setActiveStep] = useState(0); // 1: Uploading, 2: OCR Extracting, 3: Completed
 
   const pickImage = async (useCamera = false) => {
     try {
@@ -29,7 +39,7 @@ export default function ScanReceiptScreen() {
         }
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.8,
+          quality: 0.85,
         });
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -39,13 +49,14 @@ export default function ScanReceiptScreen() {
         }
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.8,
+          quality: 0.85,
         });
       }
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setImage(result.assets[0]);
-        setStatus(''); // Reset status
+        setStatus('');
+        setActiveStep(0);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -57,7 +68,8 @@ export default function ScanReceiptScreen() {
     if (!image) return;
 
     setLoading(true);
-    setStatus('Uploading and parsing receipt...');
+    setActiveStep(1);
+    setStatus('Uploading receipt image...');
 
     const formData = new FormData();
     formData.append('file', {
@@ -68,14 +80,13 @@ export default function ScanReceiptScreen() {
 
     try {
       const token = await SecureStore.getItemAsync('userToken');
-      
+
       const response = await fetch(`${apiClient.defaults.baseURL}/transactions/upload/async`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-          // Do NOT set Content-Type manually. Fetch will automatically set it to multipart/form-data with the correct boundary!
+          Authorization: `Bearer ${token}`,
         },
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {
@@ -86,177 +97,409 @@ export default function ScanReceiptScreen() {
       const uploadData = await response.json();
       console.log('[Upload API Response]', uploadData);
       const jobId = uploadData.job_id;
-      
+
       if (!jobId) {
-        throw new Error("No job ID returned from server.");
+        throw new Error('No job ID returned from server.');
       }
 
-      setStatus('Receipt uploaded! Extracting expenses (this may take a moment)...');
+      setActiveStep(2);
+      setStatus('AI is extracting merchant, date & total...');
 
       // Polling loop
       let isComplete = false;
       let finalStatus = '';
-      
+
       while (!isComplete) {
-        // Wait 2 seconds before polling
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const statusResponse = await fetch(`${apiClient.defaults.baseURL}/transactions/jobs/${jobId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        const statusResponse = await fetch(
+          `${apiClient.defaults.baseURL}/transactions/jobs/${jobId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
-        
+        );
+
         if (!statusResponse.ok) {
           throw new Error('Failed to check job status');
         }
-        
+
         const statusData = await statusResponse.json();
         console.log('[Polling API Response]', statusData);
-        
-        if (statusData.status.toUpperCase() === 'COMPLETED') {
+
+        const currentStatus = (statusData.status || '').toUpperCase();
+        if (currentStatus === 'COMPLETED') {
           isComplete = true;
-          finalStatus = 'Success! Receipt processed and logged.';
-        } else if (statusData.status.toUpperCase() === 'FAILED') {
+          setActiveStep(3);
+          finalStatus = 'Success! Receipt logged as a transaction.';
+        } else if (currentStatus === 'FAILED') {
           isComplete = true;
           throw new Error(statusData.error_message || 'OCR processing failed on the backend.');
         } else {
-          // Still PENDING or PROCESSING
-          setStatus('Still extracting... please wait.');
+          setStatus('Analyzing line items & totals... please wait.');
         }
       }
 
       setStatus(finalStatus);
       setImage(null);
       Alert.alert('Success', 'Your receipt was successfully processed and logged as an expense.');
-      
     } catch (error) {
       console.error('Upload error:', error);
-      setStatus('Failed to upload receipt.');
-      Alert.alert('Upload Failed', error.message || 'An error occurred during upload.');
+      setStatus(error.message || 'Failed to process receipt.');
+      Alert.alert('Upload Failed', error.message || 'An error occurred during receipt processing.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Scan Receipt</Text>
-      <Text style={styles.subtitle}>Take a photo of your receipt to auto-extract expenses</Text>
+    <BackgroundGlow>
+      <GlassHeader
+        title="Scan Receipt"
+        subtitle="Automatic AI expense extractor"
+        badge="SMART OCR"
+      />
 
-      <View style={styles.imageContainer}>
-        {image ? (
-          <Image source={{ uri: image.uri }} style={styles.previewImage} />
-        ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>No receipt selected</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.responsiveWrapper}>
+          {/* Viewfinder Glass Container */}
+          <View style={styles.viewfinderContainer}>
+            {/* Viewfinder Corner Highlights */}
+            <View style={[styles.cornerBracket, styles.topLeftBracket]} />
+            <View style={[styles.cornerBracket, styles.topRightBracket]} />
+            <View style={[styles.cornerBracket, styles.bottomLeftBracket]} />
+            <View style={[styles.cornerBracket, styles.bottomRightBracket]} />
+
+            {image ? (
+              <View style={styles.previewWrapper}>
+                <Image source={{ uri: image.uri }} style={styles.previewImage} />
+                <TouchableOpacity
+                  style={styles.clearImagePill}
+                  onPress={() => setImage(null)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle" size={16} color="#FFF" />
+                  <Text style={styles.clearImageText}>Change Image</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.placeholderBox}>
+                <View style={styles.scannerIconCircle}>
+                  <Ionicons name="scan-outline" size={42} color={tokens.colors.primaryLight} />
+                </View>
+                <Text style={styles.placeholderTitle}>Position Receipt Here</Text>
+                <Text style={styles.placeholderSubtitle}>
+                  Take a clear photo or select a receipt from your device
+                </Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => pickImage(false)}>
-          <Text style={styles.secondaryButtonText}>Gallery</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => pickImage(true)}>
-          <Text style={styles.secondaryButtonText}>Camera</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Capture Actions */}
+          <View style={styles.actionsRow}>
+            <GlassButton
+              title="Gallery"
+              onPress={() => pickImage(false)}
+              variant="secondary"
+              icon="images-outline"
+              disabled={loading}
+              style={styles.actionBtn}
+            />
+            <GlassButton
+              title="Take Photo"
+              onPress={() => pickImage(true)}
+              variant="secondary"
+              icon="camera-outline"
+              disabled={loading}
+              style={styles.actionBtn}
+            />
+          </View>
 
-      {image && (
-        <TouchableOpacity 
-          style={styles.primaryButton} 
-          onPress={uploadReceipt}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.text} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Upload Receipt</Text>
+          {/* AI Progress Tracker Card (when active) */}
+          {loading && (
+            <GlassCard variant="highlight" style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <ActivityIndicator size="small" color={tokens.colors.primaryLight} />
+                <Text style={styles.progressTitle}>Processing Receipt</Text>
+              </View>
+
+              <View style={styles.stepRow}>
+                <View
+                  style={[
+                    styles.stepBadge,
+                    activeStep >= 1 && styles.stepBadgeActive,
+                  ]}
+                >
+                  <Text style={styles.stepNum}>1</Text>
+                </View>
+                <View
+                  style={[
+                    styles.stepLine,
+                    activeStep >= 2 && styles.stepLineActive,
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.stepBadge,
+                    activeStep >= 2 && styles.stepBadgeActive,
+                  ]}
+                >
+                  <Text style={styles.stepNum}>2</Text>
+                </View>
+                <View
+                  style={[
+                    styles.stepLine,
+                    activeStep >= 3 && styles.stepLineActive,
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.stepBadge,
+                    activeStep >= 3 && styles.stepBadgeActive,
+                  ]}
+                >
+                  <Text style={styles.stepNum}>3</Text>
+                </View>
+              </View>
+
+              <Text style={styles.statusDescription}>{status}</Text>
+            </GlassCard>
           )}
-        </TouchableOpacity>
-      )}
 
-      {status ? <Text style={styles.statusText}>{status}</Text> : null}
-    </View>
+          {/* Submit / Extract Button */}
+          {image && !loading && (
+            <GlassButton
+              title="Extract & Log Expense"
+              onPress={uploadReceipt}
+              loading={loading}
+              variant="primary"
+              size="lg"
+              icon="sparkles"
+              style={styles.uploadButton}
+            />
+          )}
+
+          {/* Tips Glass Card */}
+          <GlassCard variant="subtle" style={styles.tipsCard}>
+            <View style={styles.tipsHeader}>
+              <Ionicons name="bulb-outline" size={16} color={tokens.colors.warning} />
+              <Text style={styles.tipsTitle}>Tips for Best Results</Text>
+            </View>
+            <Text style={styles.tipsText}>
+              • Lay receipt flat in good lighting{'\n'}
+              • Ensure total amount and merchant name are visible{'\n'}
+              • Avoid shadows or blurry angles
+            </Text>
+          </GlassCard>
+        </View>
+      </ScrollView>
+    </BackgroundGlow>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.lg,
-    paddingTop: 80,
+  scrollContent: {
+    padding: tokens.spacing.md,
+    paddingBottom: 110,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.xl,
-  },
-  imageContainer: {
-    height: 300,
+  responsiveWrapper: {
     width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
+  viewfinderContainer: {
+    height: 320,
+    width: '100%',
+    backgroundColor: tokens.colors.glassCard,
+    borderRadius: tokens.borderRadius.xl,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
+    borderColor: tokens.colors.glassBorder,
+    position: 'relative',
+    marginBottom: tokens.spacing.md,
+  },
+  cornerBracket: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: tokens.colors.primaryLight,
+  },
+  topLeftBracket: {
+    top: 14,
+    left: 14,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 6,
+  },
+  topRightBracket: {
+    top: 14,
+    right: 14,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 6,
+  },
+  bottomLeftBracket: {
+    bottom: 14,
+    left: 14,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 6,
+  },
+  bottomRightBracket: {
+    bottom: 14,
+    right: 14,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 6,
+  },
+  placeholderBox: {
+    alignItems: 'center',
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  scannerIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: tokens.spacing.md,
+    ...tokens.shadows.primaryGlow,
+  },
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.colors.text,
+    marginBottom: 4,
+  },
+  placeholderSubtitle: {
+    fontSize: 13,
+    color: tokens.colors.textMuted,
+    textAlign: 'center',
+    maxWidth: 240,
+    lineHeight: 18,
+  },
+  previewWrapper: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
   },
   previewImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'contain',
   },
-  placeholder: {
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.sm,
-  },
-  buttonRow: {
+  clearImagePill: {
+    position: 'absolute',
+    bottom: 14,
+    alignSelf: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
-    gap: theme.spacing.md,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: tokens.borderRadius.round,
+    borderWidth: 1,
+    borderColor: tokens.colors.glassBorderHighlight,
+    gap: 6,
   },
-  secondaryButtonText: {
-    color: theme.colors.text,
+  clearImageText: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '600',
   },
-  primaryButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+  actionsRow: {
+    flexDirection: 'row',
+    gap: tokens.spacing.md,
+    marginBottom: tokens.spacing.md,
+  },
+  actionBtn: {
+    flex: 1,
+  },
+  uploadButton: {
+    marginBottom: tokens.spacing.md,
+  },
+  progressCard: {
+    padding: tokens.spacing.lg,
+    marginBottom: tokens.spacing.md,
     alignItems: 'center',
   },
-  primaryButtonText: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: 'bold',
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: tokens.spacing.md,
   },
-  statusText: {
-    color: theme.colors.success,
-    textAlign: 'center',
-    marginTop: theme.spacing.lg,
+  progressTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: tokens.colors.text,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: tokens.spacing.sm,
+  },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: tokens.colors.glassLight,
+    borderWidth: 1,
+    borderColor: tokens.colors.glassBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepBadgeActive: {
+    backgroundColor: tokens.colors.primary,
+    borderColor: tokens.colors.primaryLight,
+  },
+  stepNum: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  stepLine: {
+    width: 50,
+    height: 2,
+    backgroundColor: tokens.colors.glassLight,
+  },
+  stepLineActive: {
+    backgroundColor: tokens.colors.primary,
+  },
+  statusDescription: {
+    color: tokens.colors.primaryLight,
+    fontSize: 13,
     fontWeight: '500',
-  }
+    textAlign: 'center',
+    marginTop: tokens.spacing.sm,
+  },
+  tipsCard: {
+    padding: tokens.spacing.md,
+    marginTop: tokens.spacing.xs,
+  },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: tokens.spacing.xs,
+  },
+  tipsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: tokens.colors.warning,
+  },
+  tipsText: {
+    fontSize: 12,
+    color: tokens.colors.textMuted,
+    lineHeight: 18,
+  },
 });

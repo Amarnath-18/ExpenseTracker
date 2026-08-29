@@ -23,6 +23,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None
     is_active: bool
+    is_verified: bool = False
     created_at: dt.datetime
 
 
@@ -45,6 +46,15 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(
         min_length=6, description="New password must be at least 6 characters"
     )
+
+
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
 
 
 class MessageResponse(BaseModel):

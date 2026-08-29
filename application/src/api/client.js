@@ -1,10 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Replace with your local machine's IP when testing on a physical device.
-// e.g., 'http://192.168.1.100:8000/api/v1'
-// Note: localhost / 127.0.0.1 will not work from an Android/iOS emulator bridging.
-export const API_BASE_URL = 'http://10.201.40.26:8000/api/v1'; // 10.0.2.2 is typical for Android emulator to host localhost
+// Load API URL from Expo environment variable (EXPO_PUBLIC_ prefix makes it available on client)
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.201.40.26:8000/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

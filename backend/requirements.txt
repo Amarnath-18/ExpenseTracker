@@ -7,5 +7,10 @@ psycopg[binary]
 alembic
 pyjwt
 passlib[bcrypt]
-celery
+rq
 redis
+pytesseract
+pillow
+langchain
+langchain-core
+langchain-google-genai

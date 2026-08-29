@@ -5,7 +5,7 @@ from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from app.models.upload_job import UploadJob, JobStatus
 from app.tasks.process_image import process_receipt_task
-
+from app.core.rq_app import q
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR,exist_ok=True)
@@ -30,7 +30,10 @@ def create_async_upload_job(db: Session, file:UploadFile, user_id: uuid.UUID) ->
     db.commit()
     db.refresh(new_job)
 
-    process_receipt_task.delay(str(new_job.id),file_path)
+    q.enqueue(process_receipt_task,
+        args=(str(new_job.id),file_path),
+        job_timeout=3600 # 1 hour
+    )
 
     return new_job.id
 

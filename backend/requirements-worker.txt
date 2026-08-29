@@ -1,7 +1,0 @@
--r requirements.txt
-paddlepaddle
-paddleocr
-langchain
-langchain-core
-langchain-google-genai
-langchain-ollama

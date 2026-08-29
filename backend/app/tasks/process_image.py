@@ -1,7 +1,6 @@
 import logging
 import os
 import uuid
-from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.models.upload_job import UploadJob, JobStatus
 from app.services.ocr_service import ocr_service
@@ -11,7 +10,6 @@ from app.services.transaction_service import transaction_service
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task
 def process_receipt_task(job_id: str, file_path: str):
     """
     Background worker task to run OCR, extract data with LLM, and persist transaction & job status.

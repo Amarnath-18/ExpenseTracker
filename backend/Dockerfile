@@ -21,16 +21,12 @@ CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
 # ===================================================
 FROM api AS worker
 
-# Install system libraries needed by OpenCV / PaddleOCR / PaddlePaddle
+# Install Tesseract system package
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
-    libgomp1 \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-worker.txt .
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements-worker.txt
 
-CMD ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+
+CMD ["rq", "worker", "default", "--url", "redis://redis:6379/0"]

@@ -1,149 +1,146 @@
-# 💰 ExpenseTracker Backend
+# ⚡ SpendPulse (ExpenseTracker)
 
-A modern, production-ready FastAPI backend designed to track expenses. It accepts transaction/receipt screenshots, extracts text locally using **PaddleOCR**, structures the raw receipt data using **LangChain** (supporting both local Ollama models and cloud Gemini models), and stores the finalized transaction in **PostgreSQL**.
+A full-stack, AI-powered personal finance and receipt scanning system.
 
----
-
-## 🚀 Key Features
-
-* 📸 **Receipt OCR Scanner**: High-accuracy local text extraction from images using PaddleOCR.
-* 🤖 **Smart AI Structuring (LangChain)**: Extract structured details (merchant, amount, currency, category, date, payment mode) using Google Gemini or local Ollama models (e.g., Llama 3.2).
-* 🔐 **Secure Authentication**: Complete JWT-based user authentication, token refresh, and multi-device session management.
-* 🛡️ **Production-Ready MVC Architecture**: Clean division of concerns across API Routes, Controllers, Services, SQLAlchemy Models, and Pydantic Schemas.
-* 📊 **Robust PostgreSQL Storage**: Timezone-aware created timestamps, UUID/GUID primary keys, and automatic Alembic migrations.
-* 🧪 **Fast Automated Test Suite**: Fully mocked unit and integration tests for fast execution (<1 sec) without network or hardware overhead.
+* **📱 Mobile App (`application/`)**: Built with **React Native & Expo SDK 54**, featuring a modern dark glassmorphic design system, OTP verification, instant receipt scanning, and automated cloud APK builds via **EAS Build**.
+* **🚀 Backend (`backend/`)**: High-performance **FastAPI** service accepting receipt images, extracting text locally with **PaddleOCR**, structuring data with **LangChain** (Google Gemini & Ollama), and storing records in **PostgreSQL**.
+* **🌐 Web Preview (`minimal_UI/`)**: Lightweight web interface for quick API testing.
 
 ---
 
-## 📁 Project Structure
+## 📱 Mobile Application (`application/`)
 
-```text
-backend/
-├── alembic/                # Database migrations history and configurations
-├── app/
-│   ├── api/v1/             # Route endpoints (FastAPI routers)
-│   ├── controllers/        # Request validation and business flow orchestration
-│   ├── core/               # Application configuration settings (.env loading)
-│   ├── db/                 # Database base class and session engine
-│   ├── models/             # SQLAlchemy database models
-│   ├── schemas/            # Pydantic schemas (Request/Response validation)
-│   └── services/           # Core business logic (OCR scanner & LLM structuring)
-├── tests/                  # Integration and unit tests
-├── main.py                 # Server startup entrypoint
-├── requirements.txt        # Python dependency manifest
-└── Context.md              # Live project status and developer notes
+### Key Features
+* 💎 **Dark Glassmorphic UI**: High-contrast, glowing neon accents (Electric Blue, Radiant Violet, Emerald) with glass card aesthetics and ambient background glow.
+* 🔐 **Full Auth Flow**: Secure Sign-up, Sign-in, and 6-digit **Email OTP Verification** backed by encrypted hardware keystore (`expo-secure-store`).
+* 📸 **Instant AI Receipt Scanner**: Capture or pick receipts from device storage and automatically extract merchant, date, category, and total amount.
+* 📊 **Interactive Dashboard & Metrics**: Real-time spending overview, categorized recent expenses, and detailed expense inspection modal.
+* 📦 **EAS Cloud APK Build**: Preconfigured EAS build profiles (`eas.json`) for one-command Android `.apk` generation.
+
+### Mobile Setup & Running
+
+```powershell
+cd application
+
+# 1. Install dependencies
+npm install
+
+# 2. Configure Environment Variables
+# Copy .env.example to .env and set your backend IP address
+cp .env.example .env
+
+# 3. Start Expo development server
+npx expo start -c
+```
+
+### Generating Android APK (EAS Build)
+
+```powershell
+cd application
+
+# Log in to your Expo account (one-time setup)
+eas login
+
+# Build APK in the cloud
+eas build -p android --profile preview
 ```
 
 ---
 
-## 🛠️ Setup & Installation
+## 🚀 Backend Service (`backend/`)
 
-### Prerequisite
-Ensure you have Python 3.10+ installed. Using **`uv`** is recommended for extremely fast dependency installation.
+### Key Features
+* 📸 **Receipt OCR Scanner**: High-accuracy local text extraction from images using **PaddleOCR**.
+* 🤖 **Smart AI Structuring (LangChain)**: Structured extraction (merchant, amount, currency, category, date, payment mode) using **Google Gemini** or local **Ollama** (e.g. `llama3.2`).
+* 📧 **Email OTP Verification**: Integrated verification emails with 6-digit OTP delivery for user account activation.
+* 🔐 **Secure JWT Authentication**: Access tokens, long-lived refresh tokens, and multi-device session management.
+* 🛡️ **Clean MVC Architecture**: Divided into API Routes, Controllers, Services, SQLAlchemy Models, and Pydantic Schemas.
+* 📊 **PostgreSQL & Alembic Migrations**: UUID primary keys, timezone-aware timestamps, and automated schema migration management.
 
-### 1. Clone the repository and navigate to backend
+### Backend Setup & Running
+
 ```powershell
 cd backend
-```
 
-### 2. Create and activate a Virtual Environment
-```powershell
-# Using uv (Recommended)
+# 1. Create and activate virtual environment
 uv venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
-# Using standard virtualenv
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-```powershell
+# 2. Install dependencies
 uv pip install -r requirements.txt
-# OR
-pip install -r requirements.txt
-```
 
----
-
-## ⚙️ Configuration
-
-Copy `.env.example` to `.env` and configure your credentials:
-```powershell
+# 3. Configure environment
 cp .env.example .env
+
+# 4. Run database migrations
+alembic upgrade head
+
+# 5. Start the FastAPI server
+fastapi dev main.py
 ```
 
-### Environment Variables
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `APP_APP_NAME` | Name of the FastAPI application | `"ExpanceTracker API"` |
-| `APP_DATABASE_URL` | PostgreSQL connection string | `postgresql://...` |
-| `APP_LLM_PROVIDER` | AI provider (`google` or `ollama`) | `ollama` |
-| `APP_LLM_MODEL` | AI model name (`gemini-3.1-flash-lite` or `llama3.2`) | `llama3.2` |
-| `APP_GEMINI_API_KEY` | API Key for Google Gemini (if using `google` provider) | `None` |
-| `APP_OLLAMA_BASE_URL` | Local API URL for Ollama | `http://localhost:11434` |
-
----
-
-## 🗄️ Database Migrations
-
-Apply database migrations using Alembic:
-```powershell
-# Generate initial migration script
-.\.venv\Scripts\alembic.exe revision --autogenerate -m "initial migration"
-
-# Apply migrations to database
-.\.venv\Scripts\alembic.exe upgrade head
-```
+Access the interactive API documentation at: **`http://127.0.0.1:8000/docs`**
 
 ---
 
 ## 🐳 Docker Deployment
 
-The easiest way to run the backend is via Docker:
+To launch the full backend stack via Docker:
 
 ```powershell
-# Build the image
-docker build -t expancetracker-backend .
-
-# Run the container
-docker run -p 8000:8000 --env-file .env expancetracker-backend
+cd backend
+docker-compose up --build -d
 ```
 
 ---
 
-## 🏃 Running the Application (Local)
+## 📡 API Endpoint Reference
 
-### 1. Run local LLM service (Ollama)
-Ensure Ollama is installed and run Llama 3.2 locally:
-```powershell
-ollama run llama3.2
-```
-
-### 2. Start the FastAPI backend
-Run the backend with UTF-8 encoding support enabled on Windows:
-```powershell
-$env:PYTHONIOENCODING="utf-8"
-fastapi dev main.py
-```
-Open **`http://127.0.0.1:8000/docs`** to access the Swagger interactive documentation.
-
-### 3. Run Tests
-```powershell
-.\.venv\Scripts\pytest.exe
-```
+| Method | Path | Description | Authentication |
+| :--- | :--- | :--- | :--- |
+| **POST** | `/api/v1/auth/signup` | Register new user account | Public |
+| **POST** | `/api/v1/auth/login` | Authenticate user & issue tokens | Public |
+| **POST** | `/api/v1/auth/send-otp` | Send/resend 6-digit email OTP | Public |
+| **POST** | `/api/v1/auth/verify-otp` | Verify account using OTP | Public |
+| **POST** | `/api/v1/auth/refresh` | Refresh access token | Public (Cookie) |
+| **POST** | `/api/v1/auth/logout` | Revoke session tokens | Authenticated |
+| **GET** | `/api/v1/transactions/` | List all user transactions | Authenticated |
+| **POST** | `/api/v1/transactions/` | Manually log an expense | Authenticated |
+| **POST** | `/api/v1/transactions/upload` | Upload receipt image -> OCR -> AI extraction | Authenticated |
+| **DELETE** | `/api/v1/transactions/{id}` | Delete transaction by ID | Authenticated |
+| **GET** | `/api/v1/health` | Service health status | Public |
 
 ---
 
-## 📊 Current Progress & Roadmap
+## 📁 Repository Structure
 
-- [x] Create MVC folder structure
-- [x] Implement PaddleOCR local text extraction service
-- [x] Configure PostgreSQL, UUID primary keys, and Alembic migrations
-- [x] Implement LangChain AI structuring service (Gemini + Ollama)
-- [x] Connect OCR + AI into a unified transaction upload API (`POST /api/v1/transactions/upload`)
-- [x] Implement comprehensive Transaction CRUD operations
-- [x] Add comprehensive mocked unit testing suite
-- [x] Implement user authentication and multi-user tenancy
-- [ ] Build Frontend React/Next.js dashboard application
-- [ ] Connect frontend file-uploader to backend transaction API
+```text
+ExpanceTracker/
+├── application/             # React Native (Expo SDK 54) Mobile App
+│   ├── assets/              # App icons, splash, and branding assets
+│   ├── src/
+│   │   ├── api/             # Axios client, auth, and transaction APIs
+│   │   ├── components/      # Glassmorphism UI component library
+│   │   ├── screens/         # Auth, Dashboard, Scanner, Details screens
+│   │   └── theme/           # Design tokens, color palette, and styles
+│   ├── App.js               # Root navigation and authentication wrapper
+│   ├── app.json             # Expo project configuration (SpendPulse)
+│   ├── eas.json             # EAS cloud build profiles
+│   └── package.json
+│
+├── backend/                 # FastAPI Backend Service
+│   ├── alembic/             # Database migration versions
+│   ├── app/
+│   │   ├── api/v1/          # FastAPI routers
+│   │   ├── controllers/     # Business flow & error orchestration
+│   │   ├── core/            # Configuration settings & JWT utilities
+│   │   ├── db/              # SQLAlchemy database session & Base
+│   │   ├── models/          # SQLAlchemy DB models (User, Transaction)
+│   │   ├── schemas/         # Pydantic schemas (Request/Response validation)
+│   │   └── services/        # OCR, LLM, OTP, and DB service layers
+│   ├── main.py              # Server entry point
+│   ├── requirements.txt     # Python package requirements
+│   └── docker-compose.yml
+│
+└── minimal_UI/              # Vanilla web interface for testing
+```

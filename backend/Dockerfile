@@ -14,6 +14,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY . .
 
+# Set up entrypoint script for automatic migrations
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8000
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]

@@ -10,7 +10,6 @@ from sqlalchemy import create_engine, pool
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models.expense import Expense  # Import model to register it
 from app.models.transaction import Transaction  # Import model to register it
 from app.models.upload_job import UploadJob
 from app.models.user import User

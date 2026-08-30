@@ -1,7 +1,7 @@
 import logging
 import uuid
 from app.models.transaction import Transaction
-from app.schemas.transaction import TransactionCreate
+from app.schemas.transaction import TransactionCreate, TransactionUpdate
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -76,6 +76,26 @@ class TransactionService:
         except SQLAlchemyError as e:
             db.rollback()
             logger.error(f"Database error deleting transaction {transaction_id}: {str(e)}")
+            raise e
+
+
+    def update_transaction(
+        self, db: Session, transaction_id: uuid.UUID, payload: TransactionUpdate, user_id: uuid.UUID
+    ) -> Transaction | None:
+        """Updates an existing transaction if it exists and belongs to the user."""
+        try:
+            transaction = self.get_transaction(db, transaction_id, user_id)
+            if not transaction:
+                return None
+            update_data = payload.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                setattr(transaction, field, value)
+            db.commit()
+            db.refresh(transaction)
+            return transaction
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Database error updating transaction {transaction_id}: {str(e)}")
             raise e
 
 

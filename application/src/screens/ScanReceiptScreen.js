@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   ScrollView,
   Platform,
 } from 'react-native';
@@ -21,8 +20,10 @@ import BackgroundGlow from '../components/BackgroundGlow';
 import GlassHeader from '../components/GlassHeader';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
+import { useModal } from '../contexts/ModalContext';
 
 export default function ScanReceiptScreen() {
+  const { showModal } = useModal();
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
@@ -34,7 +35,11 @@ export default function ScanReceiptScreen() {
       if (useCamera) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+          showModal({
+            title: 'Permission needed',
+            message: 'Camera permission is required to take photos.',
+            type: 'error',
+          });
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -44,7 +49,11 @@ export default function ScanReceiptScreen() {
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('Permission needed', 'Gallery permission is required to choose photos.');
+          showModal({
+            title: 'Permission needed',
+            message: 'Gallery permission is required to choose photos.',
+            type: 'error',
+          });
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -60,7 +69,11 @@ export default function ScanReceiptScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image.');
+      showModal({
+        title: 'Error',
+        message: 'Failed to pick image.',
+        type: 'error',
+      });
     }
   };
 
@@ -143,11 +156,19 @@ export default function ScanReceiptScreen() {
 
       setStatus(finalStatus);
       setImage(null);
-      Alert.alert('Success', 'Your receipt was successfully processed and logged as an expense.');
+      showModal({
+        title: 'Success',
+        message: 'Your receipt was successfully processed and logged as an expense.',
+        type: 'success',
+      });
     } catch (error) {
       console.error('Upload error:', error);
       setStatus(error.message || 'Failed to process receipt.');
-      Alert.alert('Upload Failed', error.message || 'An error occurred during receipt processing.');
+      showModal({
+        title: 'Upload Failed',
+        message: error.message || 'An error occurred during receipt processing.',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }

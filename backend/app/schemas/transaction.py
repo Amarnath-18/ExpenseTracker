@@ -18,6 +18,16 @@ class TransactionCreate(TransactionBase):
     pass
 
 
+class TransactionUpdate(BaseModel):
+    merchant: str | None = Field(None, max_length=100)
+    amount: Decimal | None = Field(None, gt=0)
+    currency: str | None = Field(None, max_length=10)
+    category: str | None = Field(None, max_length=50)
+    date: dt.date | None = None
+    description: str | None = None
+    payment_method: str | None = Field(None, max_length=50)
+
+
 class TransactionResponse(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
 

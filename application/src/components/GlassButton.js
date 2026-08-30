@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   View,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,10 +52,10 @@ export default function GlassButton({
         };
       case 'danger':
         return {
-          backgroundColor: tokens.colors.dangerGlass,
-          borderColor: tokens.colors.dangerBorder,
+          backgroundColor: '#2A141E',
+          borderColor: 'rgba(244, 63, 94, 0.40)',
           borderWidth: 1,
-          ...tokens.shadows.dangerGlow,
+          ...(Platform.OS === 'ios' ? tokens.shadows.dangerGlow : { elevation: 0 }),
         };
       case 'ghost':
         return {
@@ -62,9 +63,9 @@ export default function GlassButton({
           borderWidth: 0,
         };
       case 'primary':
-        return tokens.shadows.primaryGlow;
+        return Platform.OS === 'ios' ? tokens.shadows.primaryGlow : { elevation: 2 };
       case 'accent':
-        return tokens.shadows.accentGlow;
+        return Platform.OS === 'ios' ? tokens.shadows.accentGlow : { elevation: 2 };
       default:
         return {};
     }
@@ -74,21 +75,21 @@ export default function GlassButton({
     switch (size) {
       case 'sm':
         return {
-          height: 38,
-          paddingHorizontal: tokens.spacing.md,
-          borderRadius: tokens.borderRadius.md,
+          height: 36,
+          paddingHorizontal: 12,
+          borderRadius: tokens.borderRadius.sm,
         };
       case 'lg':
         return {
-          height: 54,
-          paddingHorizontal: tokens.spacing.xl,
-          borderRadius: tokens.borderRadius.lg,
+          height: 48,
+          paddingHorizontal: 20,
+          borderRadius: tokens.borderRadius.md,
         };
       case 'md':
       default:
         return {
-          height: 48,
-          paddingHorizontal: tokens.spacing.lg,
+          height: 42,
+          paddingHorizontal: 16,
           borderRadius: tokens.borderRadius.md,
         };
     }

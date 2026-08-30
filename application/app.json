@@ -2,6 +2,7 @@
   "expo": {
     "name": "SpendPulse",
     "slug": "expensetracker",
+    "scheme": "expensetracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +22,15 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-share-intent",
+        {
+          "android": {
+            "launchMode": "singleTask"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

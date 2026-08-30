@@ -75,10 +75,12 @@ def logout_all_sessions(
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def request_password_reset(
-    payload: ForgotPasswordRequest, db: Session = Depends(get_db_session)
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db_session)
 ) -> MessageResponse:
     """Request a password reset token for an email."""
-    return auth_controller.forgot_password(db, payload)
+    return auth_controller.forgot_password(db, payload, background_tasks)
 
 
 @router.post("/reset-password", response_model=MessageResponse)

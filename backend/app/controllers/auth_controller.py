@@ -193,34 +193,47 @@ def logout_all_devices(
     )
 
 
-def forgot_password(db: Session, payload: ForgotPasswordRequest) -> MessageResponse:
-    """Generates a password reset token."""
+def forgot_password(db: Session, payload: ForgotPasswordRequest, background_tasks: BackgroundTasks) -> MessageResponse:
+    """Generates an OTP and sends it via email."""
     user = user_service.get_user_by_email(db, payload.email)
     if user:
-        reset_token = create_password_reset_token(user.email)
-        logger.info(f"Password reset token generated for {user.email}: {reset_token}")
+        otp = otp_service.generate_otp()
+        try:
+            success, msg = otp_service.save_otp(user.email, otp)
+            if success:
+                background_tasks.add_task(email_service.send_otp_email, user.email, otp)
+                logger.info(f"Password reset OTP queued for email: {user.email}")
+        except Exception as e:
+            logger.error(f"Error saving OTP for {user.email}: {e}")
 
     return MessageResponse(
         success=True,
-        message="If the email is registered, a password reset token has been sent.",
+        message="If the email is registered, a password reset code has been sent.",
     )
 
 
 def reset_password(db: Session, payload: ResetPasswordRequest) -> MessageResponse:
-    """Validates reset token and updates the user's password."""
-    email = verify_password_reset_token(payload.token)
-    if not email:
-        logger.warning("Password reset failed: Invalid or expired token.")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset token is invalid or has expired.",
-        )
-
-    user = user_service.get_user_by_email(db, email)
+    """Validates OTP and updates the user's password."""
+    user = user_service.get_user_by_email(db, payload.email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User associated with this reset token was not found.",
+            detail="User not found.",
+        )
+
+    try:
+        is_valid, msg = otp_service.verify_otp(payload.email, payload.otp)
+    except Exception as e:
+        logger.error(f"Error verifying OTP for {payload.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error processing verification code.",
+        )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
         )
 
     user_service.update_password(db, user, payload.new_password)

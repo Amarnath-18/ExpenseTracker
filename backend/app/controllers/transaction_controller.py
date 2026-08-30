@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.schemas.transaction import (
     TransactionCreate,
+    TransactionUpdate,
     TransactionListResponse,
     TransactionResponse,
 )
@@ -41,6 +42,37 @@ def create_transaction(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="A database error occurred while saving the transaction.",
+        )
+
+
+def update_transaction(
+    db: Session, transaction_id: uuid.UUID, payload: TransactionUpdate, user_id: uuid.UUID
+) -> TransactionResponse:
+    try:
+        item = transaction_service.update_transaction(db, transaction_id, payload, user_id)
+        if not item:
+            logger.warning(
+                f"Failed to update transaction: ID {transaction_id} not found for user {user_id}."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Transaction with ID {transaction_id} not found.",
+            )
+        logger.info(f"Transaction {transaction_id} updated successfully for user {user_id}.")
+        return TransactionResponse.model_validate(item)
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error updating transaction {transaction_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A database error occurred while updating the transaction.",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error updating transaction {transaction_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred.",
         )
 
 

@@ -149,6 +149,16 @@ export default function LoginScreen({ navigation }) {
                 onSubmitEditing={handleLogin}
               />
 
+              <View style={styles.forgotPasswordContainer}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </View>
+
               <GlassButton
                 title="Sign In"
                 onPress={handleLogin}
@@ -263,6 +273,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: tokens.spacing.sm,
+  },
+  forgotPasswordText: {
+    color: tokens.colors.primaryLight,
+    fontSize: 13,
+    fontWeight: '600',
   },
   submitButton: {
     marginTop: tokens.spacing.sm,

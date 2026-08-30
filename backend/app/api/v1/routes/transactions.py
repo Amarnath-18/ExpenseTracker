@@ -7,6 +7,7 @@ from app.controllers.transaction_controller import (
     create_transaction_from_image,
     delete_transaction,
     list_transactions,
+    update_transaction,
 )
 from app.db.session import get_db_session
 from app.models.user import User
@@ -15,6 +16,7 @@ from app.schemas.transaction import (
     TransactionDeleteResponse,
     TransactionListResponse,
     TransactionResponse,
+    TransactionUpdate,
 )
 from app.controllers.upload_job_controller import create_async_upload_job, get_job_status
 
@@ -60,6 +62,21 @@ async def upload_transaction_image(
     Please use POST /api/v1/transactions/upload/async and poll GET /api/v1/transactions/jobs/{job_id} instead.
     """
     return await create_transaction_from_image(db, file, current_user.id)
+
+
+@router.put(
+    "/{transaction_id}",
+    response_model=TransactionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_transaction_endpoint(
+    transaction_id: uuid.UUID,
+    payload: TransactionUpdate,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+) -> TransactionResponse:
+    """Update an existing transaction by its ID for the authenticated user."""
+    return update_transaction(db, transaction_id, payload, current_user.id)
 
 
 @router.delete(

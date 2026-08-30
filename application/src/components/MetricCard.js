@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import tokens from '../theme/tokens';
@@ -23,18 +23,11 @@ export default function MetricCard({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['rgba(30, 41, 59, 0.85)', 'rgba(15, 23, 42, 0.92)']}
+        colors={['#1E293B', '#0F172A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientCard}
       >
-        {/* Subtle top glow line */}
-        <LinearGradient
-          colors={['rgba(59, 130, 246, 0.45)', 'rgba(139, 92, 246, 0.45)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.topAccentBar}
-        />
 
         {/* Header summary label */}
         <View style={styles.headerRow}>
@@ -53,7 +46,7 @@ export default function MetricCard({
         {/* Hero Amount */}
         <View style={styles.amountContainer}>
           <Text style={styles.currencySymbol}>{currency}</Text>
-          <Text style={styles.amountValue}>{formattedTotal}</Text>
+          <Text style={styles.amountValue} adjustsFontSizeToFit numberOfLines={1}>{formattedTotal}</Text>
         </View>
 
         <Text style={styles.subtext}>Total logged expenses</Text>
@@ -96,29 +89,22 @@ export default function MetricCard({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: tokens.spacing.md,
-    marginVertical: tokens.spacing.sm,
-    borderRadius: tokens.borderRadius.xl,
+    marginVertical: tokens.spacing.xs + 2,
+    borderRadius: tokens.borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: tokens.colors.glassBorderHighlight,
-    ...tokens.shadows.card,
+    borderColor: tokens.colors.glassBorder,
+    ...(Platform.OS === 'ios' ? tokens.shadows.card : { elevation: 2 }),
   },
   gradientCard: {
-    padding: tokens.spacing.lg,
+    padding: tokens.spacing.md,
     position: 'relative',
-  },
-  topAccentBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: tokens.spacing.md,
+    marginBottom: tokens.spacing.sm,
   },
   badge: {
     flexDirection: 'row',
@@ -160,50 +146,49 @@ const styles = StyleSheet.create({
   amountContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: tokens.spacing.xxs,
+    marginBottom: 2,
   },
   currencySymbol: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
     color: tokens.colors.primaryLight,
     marginRight: 4,
   },
   amountValue: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: '800',
     color: tokens.colors.text,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   subtext: {
-    fontSize: 13,
+    fontSize: 12,
     color: tokens.colors.textMuted,
-    marginBottom: tokens.spacing.lg,
+    marginBottom: tokens.spacing.md,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.sm,
   },
   actionButtonPrimary: {
     flex: 1,
-    height: 44,
+    height: 38,
     borderRadius: tokens.borderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     overflow: 'hidden',
-    ...tokens.shadows.primaryGlow,
   },
   actionButtonText: {
     color: '#FFF',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   actionButtonSecondary: {
     flex: 1,
-    height: 44,
+    height: 38,
     borderRadius: tokens.borderRadius.md,
-    backgroundColor: 'rgba(51, 65, 85, 0.45)',
+    backgroundColor: tokens.colors.glassLight,
     borderWidth: 1,
     borderColor: tokens.colors.glassBorder,
     flexDirection: 'row',
@@ -214,6 +199,6 @@ const styles = StyleSheet.create({
   actionSecondaryText: {
     color: tokens.colors.text,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
 });

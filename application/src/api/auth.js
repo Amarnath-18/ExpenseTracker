@@ -70,3 +70,33 @@ export const verifyOtp = async ({ email, otp }) => {
   });
   return response.data;
 };
+
+/**
+ * Request OTP for password reset
+ * @param {Object} data
+ * @param {string} data.email
+ * @returns {Promise<Object>} { success, message }
+ */
+export const forgotPassword = async ({ email }) => {
+  const response = await apiClient.post('/auth/forgot-password', {
+    email: email.trim(),
+  });
+  return response.data;
+};
+
+/**
+ * Reset password using OTP
+ * @param {Object} data
+ * @param {string} data.email
+ * @param {string} data.otp
+ * @param {string} data.new_password
+ * @returns {Promise<Object>} { success, message }
+ */
+export const resetPassword = async ({ email, otp, new_password }) => {
+  const response = await apiClient.post('/auth/reset-password', {
+    email: email.trim(),
+    otp: otp.trim(),
+    new_password,
+  });
+  return response.data;
+};

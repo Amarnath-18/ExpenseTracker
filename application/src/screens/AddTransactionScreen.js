@@ -8,11 +8,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { createTransaction } from '../api/transactions';
+import { createTransaction, updateTransaction } from '../api/transactions';
 import tokens from '../theme/tokens';
 import BackgroundGlow from '../components/BackgroundGlow';
 import GlassHeader from '../components/GlassHeader';
@@ -20,6 +19,7 @@ import GlassCard from '../components/GlassCard';
 import GlassInput from '../components/GlassInput';
 import GlassButton from '../components/GlassButton';
 import { CATEGORY_CONFIG } from '../components/CategoryBadge';
+import { useModal } from '../contexts/ModalContext';
 
 const CATEGORIES = [
   'Food',
@@ -42,7 +42,11 @@ const PAYMENT_METHODS = [
 
 const AMOUNT_PRESETS = [100, 250, 500, 1000, 2000];
 
-export default function AddTransactionScreen({ navigation }) {
+export default function AddTransactionScreen({ route, navigation }) {
+  const { showModal } = useModal();
+  const existingTx = route?.params?.transaction;
+  const isEditing = !!existingTx;
+
   const getTodayString = () => new Date().toISOString().split('T')[0];
   const getYesterdayString = () => {
     const d = new Date();
@@ -50,14 +54,27 @@ export default function AddTransactionScreen({ navigation }) {
     return d.toISOString().split('T')[0];
   };
 
-  const [amount, setAmount] = useState('');
-  const [merchant, setMerchant] = useState('');
-  const [category, setCategory] = useState('Food');
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
-  const [date, setDate] = useState(getTodayString());
-  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState(existingTx ? String(existingTx.amount) : '');
+  const [merchant, setMerchant] = useState(existingTx?.merchant || '');
+  const [category, setCategory] = useState(existingTx?.category || 'Food');
+  const [paymentMethod, setPaymentMethod] = useState(existingTx?.payment_method || 'UPI');
+  const [date, setDate] = useState(
+    existingTx?.date ? existingTx.date.split('T')[0] : getTodayString()
+  );
+  const [description, setDescription] = useState(existingTx?.description || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (existingTx) {
+      setAmount(String(existingTx.amount || ''));
+      setMerchant(existingTx.merchant || '');
+      setCategory(existingTx.category || 'Food');
+      setPaymentMethod(existingTx.payment_method || 'UPI');
+      setDate(existingTx.date ? existingTx.date.split('T')[0] : getTodayString());
+      setDescription(existingTx.description || '');
+    }
+  }, [existingTx]);
 
   const resetForm = () => {
     setAmount('');
@@ -102,17 +119,28 @@ export default function AddTransactionScreen({ navigation }) {
         description: description.trim() || null,
       };
 
-      await createTransaction(payload);
-
-      Alert.alert('Success', 'Transaction logged successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
+      if (isEditing) {
+        await updateTransaction(existingTx.id, payload);
+        showModal({
+          title: 'Success',
+          message: 'Transaction updated successfully!',
+          type: 'success',
+          onConfirm: () => {
+            navigation.navigate('Dashboard');
+          },
+        });
+      } else {
+        await createTransaction(payload);
+        showModal({
+          title: 'Success',
+          message: 'Transaction logged successfully!',
+          type: 'success',
+          onConfirm: () => {
             resetForm();
             navigation.navigate('Dashboard');
           },
-        },
-      ]);
+        });
+      }
     } catch (err) {
       console.error('Failed to create transaction:', err);
       if (err.response && err.response.data && err.response.data.detail) {
@@ -137,10 +165,10 @@ export default function AddTransactionScreen({ navigation }) {
   return (
     <BackgroundGlow>
       <GlassHeader
-        title="Add Expense"
-        subtitle="Log a new transaction"
-        badge="MANUAL ENTRY"
-        showBack={canGoBack}
+        title={isEditing ? 'Edit Expense' : 'Add Expense'}
+        subtitle={isEditing ? 'Modify transaction details' : 'Log a new transaction'}
+        badge={isEditing ? 'EDIT MODE' : 'MANUAL ENTRY'}
+        showBack={isEditing || canGoBack}
         onBack={() => navigation.goBack()}
       />
 
@@ -163,7 +191,7 @@ export default function AddTransactionScreen({ navigation }) {
             ) : null}
 
             {/* Hero Amount Field */}
-            <GlassCard variant="highlight" style={styles.amountCard}>
+            <GlassCard variant="highlight" style={styles.amountCard} contentStyle={styles.amountCardContent}>
               <Text style={styles.amountLabel}>AMOUNT (INR)</Text>
               <View style={styles.amountInputRow}>
                 <Text style={styles.amountCurrency}>₹</Text>
@@ -197,7 +225,7 @@ export default function AddTransactionScreen({ navigation }) {
             </GlassCard>
 
             {/* Transaction Details Glass Form */}
-            <GlassCard variant="default" style={styles.formCard}>
+            <GlassCard variant="default" style={styles.formCard} contentStyle={styles.formCardContent}>
               {/* Merchant / Payee */}
               <GlassInput
                 label="Merchant / Payee"
@@ -337,12 +365,12 @@ export default function AddTransactionScreen({ navigation }) {
 
               {/* Submit Button */}
               <GlassButton
-                title="Save Transaction"
+                title={isEditing ? 'Update Transaction' : 'Save Transaction'}
                 onPress={handleSave}
                 loading={loading}
                 variant="primary"
                 size="lg"
-                icon="save-outline"
+                icon={isEditing ? 'checkmark-circle-outline' : 'save-outline'}
                 style={styles.saveButton}
               />
             </GlassCard>
@@ -384,8 +412,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   amountCard: {
-    padding: tokens.spacing.lg,
     marginBottom: tokens.spacing.md,
+  },
+  amountCardContent: {
+    padding: tokens.spacing.lg,
     alignItems: 'center',
   },
   amountLabel: {
@@ -435,6 +465,9 @@ const styles = StyleSheet.create({
     color: tokens.colors.textSecondary,
   },
   formCard: {
+    marginBottom: tokens.spacing.md,
+  },
+  formCardContent: {
     padding: tokens.spacing.lg,
   },
   sectionContainer: {

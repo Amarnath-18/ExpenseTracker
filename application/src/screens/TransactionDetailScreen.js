@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,10 +14,12 @@ import GlassHeader from '../components/GlassHeader';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import CategoryBadge from '../components/CategoryBadge';
+import { useModal } from '../contexts/ModalContext';
 
 export default function TransactionDetailScreen({ route, navigation }) {
   const { transaction } = route.params || {};
   const [deleting, setDeleting] = useState(false);
+  const { showModal } = useModal();
 
   if (!transaction) {
     return (
@@ -67,29 +68,29 @@ export default function TransactionDetailScreen({ route, navigation }) {
     : null;
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this expense? This action cannot be reversed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeleting(true);
-              await deleteTransaction(transaction.id);
-              navigation.goBack();
-            } catch (err) {
-              console.error('Delete transaction failed:', err);
-              Alert.alert('Error', 'Failed to delete transaction. Please try again.');
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+    showModal({
+      title: 'Delete Transaction',
+      message: 'Are you sure you want to delete this expense? This action cannot be reversed.',
+      type: 'confirm',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          setDeleting(true);
+          await deleteTransaction(transaction.id);
+          navigation.goBack();
+        } catch (err) {
+          console.error('Delete transaction failed:', err);
+          showModal({
+            title: 'Error',
+            message: 'Failed to delete transaction. Please try again.',
+            type: 'error',
+          });
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
   };
 
   return (
@@ -108,7 +109,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
       >
         <View style={styles.responsiveWrapper}>
           {/* Amount Hero Glass Card */}
-          <GlassCard variant="hero" style={styles.heroCard}>
+          <GlassCard variant="hero" style={styles.heroCard} contentStyle={styles.heroCardContent}>
             <CategoryBadge
               category={transaction.category || 'Other'}
               size="lg"
@@ -122,7 +123,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
 
             <View style={styles.amountRow}>
               <Text style={styles.currencySymbol}>₹</Text>
-              <Text style={styles.amountValue}>{formattedAmount}</Text>
+              <Text style={styles.amountValue} adjustsFontSizeToFit numberOfLines={1}>{formattedAmount}</Text>
             </View>
 
             <View style={styles.statusPill}>
@@ -132,7 +133,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
           </GlassCard>
 
           {/* Detailed Info Grid Card */}
-          <GlassCard variant="default" style={styles.detailsCard}>
+          <GlassCard variant="default" style={styles.detailsCard} contentStyle={styles.detailsCardContent}>
             <Text style={styles.cardSectionHeading}>TRANSACTION METADATA</Text>
 
             {/* Category Row */}
@@ -199,16 +200,27 @@ export default function TransactionDetailScreen({ route, navigation }) {
             </View>
           </GlassCard>
 
-          {/* Delete Action Button */}
-          <GlassButton
-            title="Delete Transaction"
-            onPress={handleDelete}
-            loading={deleting}
-            variant="danger"
-            size="lg"
-            icon="trash-outline"
-            style={styles.deleteButton}
-          />
+          {/* Action Buttons (Edit & Delete) */}
+          <View style={styles.actionsContainer}>
+            <GlassButton
+              title="Edit Expense"
+              onPress={() => navigation.navigate('AddTransaction', { transaction })}
+              variant="primary"
+              size="md"
+              icon="create-outline"
+              style={styles.editButton}
+            />
+
+            <GlassButton
+              title="Delete Expense"
+              onPress={handleDelete}
+              loading={deleting}
+              variant="danger"
+              size="md"
+              icon="trash-outline"
+              style={styles.deleteButton}
+            />
+          </View>
         </View>
       </ScrollView>
     </BackgroundGlow>
@@ -226,9 +238,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   heroCard: {
+    marginBottom: tokens.spacing.md,
+  },
+  heroCardContent: {
     alignItems: 'center',
     padding: tokens.spacing.xl,
-    marginBottom: tokens.spacing.md,
   },
   heroCategoryBadge: {
     marginBottom: tokens.spacing.md,
@@ -281,8 +295,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   detailsCard: {
-    padding: tokens.spacing.lg,
     marginBottom: tokens.spacing.lg,
+  },
+  detailsCardContent: {
+    padding: tokens.spacing.lg,
   },
   cardSectionHeading: {
     fontSize: 11,
@@ -337,8 +353,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: tokens.spacing.xs + 2,
   },
-  deleteButton: {
+  actionsContainer: {
+    gap: 10,
+    marginTop: tokens.spacing.xs,
     marginBottom: tokens.spacing.lg,
+  },
+  editButton: {
+    width: '100%',
+  },
+  deleteButton: {
+    width: '100%',
   },
   centerContainer: {
     flex: 1,

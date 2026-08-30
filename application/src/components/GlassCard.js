@@ -1,7 +1,5 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import tokens from '../theme/tokens';
 
 /**
@@ -25,15 +23,15 @@ export default function GlassCard({
     switch (variant) {
       case 'elevated':
         return {
-          backgroundColor: 'rgba(26, 36, 60, 0.75)',
-          borderColor: 'rgba(255, 255, 255, 0.16)',
-          ...tokens.shadows.card,
+          backgroundColor: '#1E293B',
+          borderColor: tokens.colors.glassBorderHighlight,
+          ...(Platform.OS === 'ios' ? tokens.shadows.card : { elevation: 3 }),
         };
       case 'highlight':
         return {
           backgroundColor: 'rgba(59, 130, 246, 0.12)',
           borderColor: 'rgba(59, 130, 246, 0.35)',
-          ...tokens.shadows.primaryGlow,
+          ...(Platform.OS === 'ios' ? tokens.shadows.primaryGlow : { elevation: 2 }),
         };
       case 'subtle':
         return {
@@ -42,36 +40,28 @@ export default function GlassCard({
         };
       case 'hero':
         return {
-          backgroundColor: 'rgba(23, 32, 54, 0.82)',
-          borderColor: 'rgba(255, 255, 255, 0.18)',
-          ...tokens.shadows.card,
+          backgroundColor: '#1E293B',
+          borderColor: tokens.colors.glassBorderHighlight,
+          ...(Platform.OS === 'ios' ? tokens.shadows.card : { elevation: 3 }),
         };
       case 'danger':
         return {
-          backgroundColor: 'rgba(244, 63, 94, 0.10)',
-          borderColor: 'rgba(244, 63, 94, 0.28)',
-          ...tokens.shadows.dangerGlow,
+          backgroundColor: '#2A141E',
+          borderColor: 'rgba(244, 63, 94, 0.35)',
+          ...(Platform.OS === 'ios' ? tokens.shadows.dangerGlow : { elevation: 0 }),
         };
       case 'default':
       default:
         return {
           backgroundColor: tokens.colors.glassCard,
           borderColor: tokens.colors.glassBorder,
-          ...tokens.shadows.subtle,
+          ...(Platform.OS === 'ios' ? tokens.shadows.subtle : { elevation: 2 }),
         };
     }
   };
 
   const cardContent = (
     <View style={[styles.innerContent, contentStyle]}>
-      {/* Top subtle highlight reflection line */}
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.topReflection}
-        pointerEvents="none"
-      />
       {children}
     </View>
   );
@@ -88,17 +78,7 @@ export default function GlassCard({
       accessibilityRole={isInteractive ? 'button' : undefined}
       {...props}
     >
-      {Platform.OS === 'ios' ? (
-        <BlurView
-          intensity={intensity}
-          tint="dark"
-          style={styles.blurLayer}
-        >
-          {cardContent}
-        </BlurView>
-      ) : (
-        cardContent
-      )}
+      {cardContent}
     </ContainerComponent>
   );
 }
@@ -116,12 +96,5 @@ const styles = StyleSheet.create({
   innerContent: {
     padding: tokens.spacing.md,
     position: 'relative',
-  },
-  topReflection: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
   },
 });

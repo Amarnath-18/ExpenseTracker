@@ -3,22 +3,22 @@ import { Platform } from 'react-native';
 export const tokens = {
   colors: {
     // Canvas & Dark theme base
-    canvas: '#0A0F1D',        // Deep obsidian canvas
-    canvasDark: '#060913',
-    canvasElevated: '#111827', // Slate 900
+    canvas: '#0F172A',        // Slate 900
+    canvasDark: '#020617',    // Slate 950
+    canvasElevated: '#1E293B', // Slate 800
     
-    // Glassmorphism fills
-    glassBase: 'rgba(30, 41, 59, 0.65)',
-    glassLight: 'rgba(51, 65, 85, 0.45)',
-    glassCard: 'rgba(23, 32, 54, 0.70)',
-    glassInput: 'rgba(15, 23, 42, 0.65)',
-    glassButton: 'rgba(51, 65, 85, 0.55)',
-    glassHighlight: 'rgba(255, 255, 255, 0.08)',
+    // Solid UI fills (replacing glass)
+    glassBase: '#1E293B',
+    glassLight: '#334155',
+    glassCard: '#1E293B',
+    glassInput: '#0F172A',
+    glassButton: '#334155',
+    glassHighlight: 'rgba(255, 255, 255, 0.05)',
     
-    // Glass borders & shines
-    glassBorder: 'rgba(255, 255, 255, 0.12)',
-    glassBorderHighlight: 'rgba(255, 255, 255, 0.22)',
-    glassBorderSubtle: 'rgba(255, 255, 255, 0.06)',
+    // Solid borders
+    glassBorder: '#334155',
+    glassBorderHighlight: '#475569',
+    glassBorderSubtle: '#1E293B',
     
     // Primary & Accent Brand Colors
     primary: '#3B82F6',         // Electric Blue 500
@@ -69,13 +69,13 @@ export const tokens = {
     primary: ['#3B82F6', '#2563EB', '#1D4ED8'],
     accent: ['#8B5CF6', '#7C3AED', '#6366F1'],
     heroSpend: ['#1E1B4B', '#0F172A', '#0F2537'],
-    glassCard: ['rgba(30, 41, 59, 0.75)', 'rgba(15, 23, 42, 0.65)'],
-    glassCardHighlight: ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.02)'],
+    glassCard: ['#1E293B', '#1E293B'],
+    glassCardHighlight: ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.01)'],
     emerald: ['#10B981', '#059669'],
     rose: ['#F43F5E', '#E11D48'],
     amber: ['#F59E0B', '#D97706'],
     cyan: ['#06B6D4', '#0284C7'],
-    floatingNav: ['rgba(15, 23, 42, 0.90)', 'rgba(30, 41, 59, 0.85)'],
+    floatingNav: ['#1E293B', '#0F172A'],
   },
 
   typography: {

@@ -179,33 +179,25 @@ export default function VerifyOtpScreen({ route, navigation }) {
                 </View>
               ) : null}
 
-              {/* 6-Digit Visual Glass Boxes Container */}
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={() => inputRef.current?.focus()}
-                style={styles.otpBoxesContainer}
-              >
+              {/* 6-Digit Visual Glass Boxes Container with native overlay */}
+              <View style={styles.otpBoxesContainer}>
                 {renderOtpBoxes()}
-              </TouchableOpacity>
 
-              {/* Hidden text input overlay capturing user keystrokes */}
-              <TextInput
-                ref={inputRef}
-                value={otp}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
-                  setOtp(cleaned);
-                  if (error) setError('');
-                  if (cleaned.length === 6) {
-                    // Optional instant trigger
-                  }
-                }}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-                style={styles.hiddenInput}
-                accessibilityLabel="Enter 6-digit verification code"
-              />
+                <TextInput
+                  ref={inputRef}
+                  value={otp}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
+                    setOtp(cleaned);
+                    if (error) setError('');
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                  style={styles.hiddenInput}
+                  accessibilityLabel="Enter 6-digit verification code"
+                />
+              </View>
 
               <Text style={styles.helperText}>
                 Code expires in 5 minutes • Tap boxes to type
@@ -407,10 +399,8 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
   },
   hiddenInput: {
-    position: 'absolute',
-    opacity: 0.01,
-    width: 1,
-    height: 1,
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0,
   },
   helperText: {
     color: tokens.colors.textDim,

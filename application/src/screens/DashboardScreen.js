@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +21,7 @@ import GlassCard from '../components/GlassCard';
 import MetricCard from '../components/MetricCard';
 import CategoryBadge from '../components/CategoryBadge';
 import EmptyState from '../components/EmptyState';
+import { useModal } from '../contexts/ModalContext';
 
 export default function DashboardScreen({ navigation }) {
   const [transactions, setTransactions] = useState([]);
@@ -29,6 +29,7 @@ export default function DashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const { signOut } = useContext(AuthContext);
+  const { showModal } = useModal();
 
   const fetchTransactions = async (showFullLoading = true) => {
     try {
@@ -55,26 +56,22 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const confirmLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out from your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logoutUser();
-            } catch (e) {
-              console.log('Backend logout failed, signing out locally', e);
-            } finally {
-              signOut();
-            }
-          },
-        },
-      ]
-    );
+    showModal({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out from your account?',
+      type: 'confirm',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await logoutUser();
+        } catch (e) {
+          console.log('Backend logout failed, signing out locally', e);
+        } finally {
+          signOut();
+        }
+      },
+    });
   };
 
   // Calculate metrics
@@ -104,47 +101,45 @@ export default function DashboardScreen({ navigation }) {
       : 'Recent';
 
     return (
-      <GlassCard
-        variant="default"
-        style={styles.card}
+      <TouchableOpacity
+        style={styles.transactionRow}
         onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
+        activeOpacity={0.7}
         accessibilityLabel={`Transaction at ${item.merchant || item.description || 'Merchant'}, amount ${formattedAmount}`}
       >
-        <View style={styles.cardRow}>
-          {/* Category Icon Badge */}
-          <CategoryBadge
-            category={item.category || 'Other'}
-            size="md"
-            iconOnly
-            style={styles.categoryIcon}
-          />
+        {/* Category Icon Badge */}
+        <CategoryBadge
+          category={item.category || 'Other'}
+          size="md"
+          iconOnly
+          style={styles.categoryIcon}
+        />
 
-          {/* Transaction Info */}
-          <View style={styles.cardInfo}>
-            <Text style={styles.merchantTitle} numberOfLines={1}>
-              {item.merchant || item.description || 'Expense'}
-            </Text>
+        {/* Transaction Info */}
+        <View style={styles.cardInfo}>
+          <Text style={styles.merchantTitle} numberOfLines={1}>
+            {item.merchant || item.description || 'Expense'}
+          </Text>
 
-            <View style={styles.metaRow}>
-              <Text style={styles.dateText}>{formattedDate}</Text>
-              {item.payment_method ? (
-                <>
-                  <Text style={styles.dotSeparator}>•</Text>
-                  <View style={styles.paymentMethodPill}>
-                    <Text style={styles.paymentMethodText}>{item.payment_method}</Text>
-                  </View>
-                </>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Amount Badge */}
-          <View style={styles.amountContainer}>
-            <Text style={styles.amountText}>-₹{formattedAmount}</Text>
-            <Ionicons name="chevron-forward" size={14} color={tokens.colors.textDim} />
+          <View style={styles.metaRow}>
+            <Text style={styles.dateText}>{formattedDate}</Text>
+            {item.payment_method ? (
+              <>
+                <Text style={styles.dotSeparator}>•</Text>
+                <View style={styles.paymentMethodPill}>
+                  <Text style={styles.paymentMethodText} numberOfLines={1}>{item.payment_method}</Text>
+                </View>
+              </>
+            ) : null}
           </View>
         </View>
-      </GlassCard>
+
+        {/* Amount Badge */}
+        <View style={styles.amountContainer}>
+          <Text style={styles.amountText} adjustsFontSizeToFit numberOfLines={1}>-₹{formattedAmount}</Text>
+          <Ionicons name="chevron-forward" size={14} color={tokens.colors.textDim} />
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -253,23 +248,14 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     letterSpacing: -0.2,
   },
-  sectionCountBadge: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: tokens.colors.textMuted,
-    backgroundColor: tokens.colors.glassLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: tokens.borderRadius.round,
-  },
-  card: {
-    marginHorizontal: tokens.spacing.md,
-    marginVertical: 5,
-    padding: tokens.spacing.sm + 4,
-  },
-  cardRow: {
+  transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.md,
+    marginHorizontal: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.glassBorderSubtle,
   },
   categoryIcon: {
     marginRight: tokens.spacing.md,
@@ -302,6 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: tokens.borderRadius.xs,
+    flexShrink: 1,
   },
   paymentMethodText: {
     fontSize: 10,
@@ -313,6 +300,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginLeft: tokens.spacing.sm,
+    flexShrink: 0,
+    maxWidth: '35%',
   },
   amountText: {
     fontSize: 15,

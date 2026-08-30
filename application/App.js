@@ -12,12 +12,18 @@ import { BlurView } from 'expo-blur';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import VerifyOtpScreen from './src/screens/VerifyOtpScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
+import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import AddTransactionScreen from './src/screens/AddTransactionScreen';
 import ScanReceiptScreen from './src/screens/ScanReceiptScreen';
 import TransactionDetailScreen from './src/screens/TransactionDetailScreen';
 import tokens from './src/theme/tokens';
 import BackgroundGlow from './src/components/BackgroundGlow';
+import { useShareIntent } from 'expo-share-intent';
+import { uploadReceiptAsync } from './src/api/transactions';
+import { ModalProvider, useModal } from './src/contexts/ModalContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -78,8 +84,22 @@ function MainTabs() {
           tabBarLabel: 'Dashboard',
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name={focused ? 'pie-chart' : 'pie-chart-outline'}
-              size={22}
+              name={focused ? 'grid' : 'grid-outline'}
+              size={20}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{
+          tabBarLabel: 'Analytics',
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons
+              name={focused ? 'stats-chart' : 'stats-chart-outline'}
+              size={21}
               color={color}
             />
           ),
@@ -93,7 +113,7 @@ function MainTabs() {
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
               name={focused ? 'add-circle' : 'add-circle-outline'}
-              size={24}
+              size={23}
               color={color}
             />
           ),
@@ -117,9 +137,12 @@ function MainTabs() {
   );
 }
 
-export default function App() {
+function RootApp() {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState(null);
+  const [isUploadingShared, setIsUploadingShared] = useState(false);
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+  const { showModal } = useModal();
 
   const authContext = useMemo(
     () => ({
@@ -156,13 +179,60 @@ export default function App() {
     checkToken();
   }, []);
 
+  useEffect(() => {
+    const handleShareIntent = async () => {
+      if (!hasShareIntent) return;
+
+      if (!userToken) {
+        showModal({
+          title: 'Login Required',
+          message: 'You must be logged in to upload shared images.',
+          type: 'error',
+        });
+        resetShareIntent();
+        return;
+      }
+
+      if (shareIntent?.value?.[0]) {
+        try {
+          setIsUploadingShared(true);
+          const file = shareIntent.value[0];
+          // Use contentUri if available, otherwise file path
+          const uri = file.contentUri || file.path;
+          if (!uri) throw new Error("Could not read shared file");
+          
+          await uploadReceiptAsync(uri, file.mimeType || 'image/jpeg', file.fileName || 'shared_receipt.jpg');
+          showModal({
+            title: 'Success',
+            message: 'Shared image uploaded successfully and is being processed.',
+            type: 'success',
+          });
+        } catch (error) {
+          showModal({
+            title: 'Upload Failed',
+            message: 'Failed to upload the shared image.',
+            type: 'error',
+          });
+          console.error('Share upload error:', error);
+        } finally {
+          setIsUploadingShared(false);
+          resetShareIntent();
+        }
+      } else {
+        resetShareIntent();
+      }
+    };
+
+    handleShareIntent();
+  }, [hasShareIntent, shareIntent, userToken]);
+
   return (
-    <SafeAreaProvider>
-      <AuthContext.Provider value={authContext}>
+    <AuthContext.Provider value={authContext}>
         <StatusBar style="light" />
-        {isLoading ? (
+        {isLoading || isUploadingShared ? (
           <BackgroundGlow style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={tokens.colors.primary} />
+            {isUploadingShared && <Text style={{color: 'white', marginTop: 10}}>Uploading Shared Image...</Text>}
           </BackgroundGlow>
         ) : (
           <NavigationContainer
@@ -191,6 +261,8 @@ export default function App() {
                   <Stack.Screen name="Login" component={LoginScreen} />
                   <Stack.Screen name="Signup" component={SignupScreen} />
                   <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+                  <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                  <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                 </>
               ) : (
                 // Authenticated App Flow
@@ -208,10 +280,19 @@ export default function App() {
                   />
                 </>
               )}
-            </Stack.Navigator>
-          </NavigationContainer>
-        )}
-      </AuthContext.Provider>
+          </Stack.Navigator>
+        </NavigationContainer>
+      )}
+    </AuthContext.Provider>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ModalProvider>
+        <RootApp />
+      </ModalProvider>
     </SafeAreaProvider>
   );
 }

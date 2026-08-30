@@ -94,7 +94,8 @@ def upgrade() -> None:
     type_exists = res.scalar()
     if not type_exists:
         op.execute("CREATE TYPE jobstatus AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')")
-    job_status_enum = sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='jobstatus', create_type=False)
+    from sqlalchemy.dialects.postgresql import ENUM as pgENUM
+    job_status_enum = pgENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='jobstatus', create_type=False)
 
     if 'upload_jobs' not in existing_tables:
         op.create_table(

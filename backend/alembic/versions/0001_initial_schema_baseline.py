@@ -90,13 +90,10 @@ def upgrade() -> None:
         op.create_index(op.f('ix_refresh_tokens_user_id'), 'refresh_tokens', ['user_id'], unique=False)
 
     # 4. Upload Jobs Table (Safe Enum creation for PostgreSQL)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE jobstatus AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-    """)
+    res = bind.execute(sa.text("SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'jobstatus')"))
+    type_exists = res.scalar()
+    if not type_exists:
+        op.execute("CREATE TYPE jobstatus AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')")
     job_status_enum = sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='jobstatus', create_type=False)
 
     if 'upload_jobs' not in existing_tables:

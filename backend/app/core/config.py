@@ -12,9 +12,19 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def check_db_url(cls, v: str) -> str:
-        if v and v.startswith("postgresql://"):
-            return v.replace("postgresql://", "postgresql+psycopg://", 1)
-        return v
+        import os
+        db_url = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL") or v
+        if not db_url or "sqlite" in db_url:
+            pg_user = os.getenv("POSTGRES_USER")
+            pg_pass = os.getenv("POSTGRES_PASSWORD")
+            pg_db = os.getenv("POSTGRES_DB")
+            pg_host = os.getenv("POSTGRES_HOST", "db" if os.path.exists("/.dockerenv") else "localhost")
+            pg_port = os.getenv("POSTGRES_PORT", "5432")
+            if pg_user and pg_pass and pg_db:
+                db_url = f"postgresql+psycopg://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+        if db_url and db_url.startswith("postgresql://"):
+            return db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return db_url
 
     @field_validator("redis_url", mode="before")
     @classmethod

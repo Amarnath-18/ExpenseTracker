@@ -42,8 +42,13 @@ export default function ScanReceiptScreen() {
           });
           return;
         }
+
+        // Wait for the permission dialog activity to fully close before launching the picker
+        // This prevents the "unregistered ActivityResultLauncher" crash on Android
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           quality: 0.85,
         });
       } else {
@@ -56,8 +61,13 @@ export default function ScanReceiptScreen() {
           });
           return;
         }
+
+        // Wait for the permission dialog activity to fully close before launching the picker
+        // This prevents the "unregistered ActivityResultLauncher" crash on Android
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           quality: 0.85,
         });
       }

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, createContext, useMemo } from 'react';
+import React, { useState, useEffect, createContext, useMemo, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
-import { ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Platform, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -137,6 +137,10 @@ function MainTabs() {
   );
 }
 
+// Module-level lock: survives React re-renders and Android lifecycle events
+let _lastUploadedUri = null;
+let _lastUploadedTime = 0;
+
 function RootApp() {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState(null);
@@ -179,10 +183,58 @@ function RootApp() {
     checkToken();
   }, []);
 
-  useEffect(() => {
-    const handleShareIntent = async () => {
-      if (!hasShareIntent) return;
+  // pendingShare state: stores intent data captured on arrival.
+  // Using useState (not useRef) so Phase 2 re-runs when new data is captured.
+  const [pendingShare, setPendingShare] = useState(null);
 
+  // Phase 1 — Capture: grab the intent payload the instant it arrives, no upload yet.
+  // This runs regardless of isLoading state, so cold-start intents are never missed.
+  useEffect(() => {
+    if (!hasShareIntent || !shareIntent) return;
+
+    const file =
+      (shareIntent?.files && shareIntent.files[0]) ||
+      (Array.isArray(shareIntent?.value) && shareIntent.value[0]) ||
+      (shareIntent?.value && typeof shareIntent.value === 'object' ? shareIntent.value : null);
+
+    const uri =
+      file?.contentUri ||
+      file?.path ||
+      (typeof shareIntent?.value === 'string' &&
+        (shareIntent.value.startsWith('file://') || shareIntent.value.startsWith('content://'))
+        ? shareIntent.value
+        : null);
+
+    if (uri && pendingShare?.uri !== uri) {
+      console.log('[ShareIntent] Captured URI:', uri);
+      setPendingShare({
+        uri,
+        mimeType: file?.mimeType || 'image/jpeg',
+        fileName: file?.fileName || `receipt_${Date.now()}.jpg`,
+      });
+    }
+  }, [hasShareIntent, shareIntent]);
+
+  // Phase 2 — Process: runs whenever pendingShare is set OR auth resolves.
+  useEffect(() => {
+    if (isLoading) return;      // Wait for auth to finish
+    if (!pendingShare) return;  // Nothing captured yet
+
+    // Module-level duplicate guard: same URI within 5 seconds = skip
+    const now = Date.now();
+    if (_lastUploadedUri === pendingShare.uri && now - _lastUploadedTime < 5000) {
+      console.log('[ShareIntent] Duplicate detected, skipping.');
+      setPendingShare(null);
+      resetShareIntent();
+      return;
+    }
+
+    const captured = pendingShare;
+    setPendingShare(null);  // Clear before async work to prevent re-runs
+    _lastUploadedUri = captured.uri;
+    _lastUploadedTime = now;
+
+    const upload = async () => {
       if (!userToken) {
         showModal({
           title: 'Login Required',
@@ -193,96 +245,91 @@ function RootApp() {
         return;
       }
 
-      if (shareIntent?.value?.[0]) {
-        try {
-          setIsUploadingShared(true);
-          const file = shareIntent.value[0];
-          // Use contentUri if available, otherwise file path
-          const uri = file.contentUri || file.path;
-          if (!uri) throw new Error("Could not read shared file");
-          
-          await uploadReceiptAsync(uri, file.mimeType || 'image/jpeg', file.fileName || 'shared_receipt.jpg');
-          showModal({
-            title: 'Success',
-            message: 'Shared image uploaded successfully and is being processed.',
-            type: 'success',
-          });
-        } catch (error) {
-          showModal({
-            title: 'Upload Failed',
-            message: 'Failed to upload the shared image.',
-            type: 'error',
-          });
-          console.error('Share upload error:', error);
-        } finally {
-          setIsUploadingShared(false);
-          resetShareIntent();
-        }
-      } else {
+      try {
+        setIsUploadingShared(true);
+        console.log('[ShareIntent] Uploading:', captured.uri);
+        await uploadReceiptAsync(captured.uri, captured.mimeType, captured.fileName);
+        showModal({
+          title: 'Success',
+          message: 'Shared image uploaded successfully and is being processed.',
+          type: 'success',
+        });
+      } catch (error) {
+        showModal({
+          title: 'Upload Failed',
+          message: 'Failed to upload the shared image.',
+          type: 'error',
+        });
+        console.error('[ShareIntent] Upload error:', error);
+      } finally {
+        setIsUploadingShared(false);
         resetShareIntent();
       }
     };
 
-    handleShareIntent();
-  }, [hasShareIntent, shareIntent, userToken]);
+    upload();
+  }, [isLoading, userToken, pendingShare]);
 
   return (
     <AuthContext.Provider value={authContext}>
         <StatusBar style="light" />
-        {isLoading || isUploadingShared ? (
-          <BackgroundGlow style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={tokens.colors.primary} />
-            {isUploadingShared && <Text style={{color: 'white', marginTop: 10}}>Uploading Shared Image...</Text>}
-          </BackgroundGlow>
-        ) : (
-          <NavigationContainer
-            theme={{
-              dark: true,
-              colors: {
-                primary: tokens.colors.primary,
-                background: tokens.colors.canvas,
-                card: tokens.colors.canvasElevated,
-                text: tokens.colors.text,
-                border: tokens.colors.glassBorder,
-                notification: tokens.colors.accent,
-              },
+        
+        {/* Always render NavigationContainer so we don't lose route state */}
+        <NavigationContainer
+          theme={{
+            dark: true,
+            colors: {
+              primary: tokens.colors.primary,
+              background: tokens.colors.canvas,
+              card: tokens.colors.glassCard,
+              text: tokens.colors.text,
+              border: tokens.colors.glassBorder,
+              notification: tokens.colors.danger,
+            },
+          }}
+        >
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: 'transparent' },
             }}
           >
-            <Stack.Navigator
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: tokens.colors.canvas },
-                animation: 'fade_from_bottom',
-              }}
-            >
-              {userToken == null ? (
-                // Unauthenticated Auth Flow
-                <>
-                  <Stack.Screen name="Login" component={LoginScreen} />
-                  <Stack.Screen name="Signup" component={SignupScreen} />
-                  <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-                  <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-                  <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-                </>
-              ) : (
-                // Authenticated App Flow
-                <>
-                  <Stack.Screen name="Main" component={MainTabs} />
-                  <Stack.Screen
-                    name="AddTransaction"
-                    component={AddTransactionScreen}
-                    options={{ presentation: 'modal' }}
-                  />
-                  <Stack.Screen
-                    name="TransactionDetail"
-                    component={TransactionDetailScreen}
-                    options={{ presentation: 'modal' }}
-                  />
-                </>
-              )}
+            {userToken == null ? (
+              // Unauthenticated Auth Flow
+              <>
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Signup" component={SignupScreen} />
+                <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+              </>
+            ) : (
+              // Authenticated App Flow
+              <>
+                <Stack.Screen name="Main" component={MainTabs} />
+                <Stack.Screen
+                  name="AddTransaction"
+                  component={AddTransactionScreen}
+                  options={{ presentation: 'modal' }}
+                />
+                <Stack.Screen
+                  name="TransactionDetail"
+                  component={TransactionDetailScreen}
+                  options={{ presentation: 'modal' }}
+                />
+              </>
+            )}
           </Stack.Navigator>
         </NavigationContainer>
-      )}
+
+        {/* Overlay Loading Screen on top when necessary */}
+        {(isLoading || isUploadingShared) && (
+          <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
+            <ActivityIndicator size="large" color={tokens.colors.primary} />
+            {isUploadingShared && <Text style={{color: 'white', marginTop: 10}}>Uploading Shared Image...</Text>}
+          </View>
+        )}
     </AuthContext.Provider>
   );
 }
@@ -298,10 +345,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
+  loadingOverlay: {
+    backgroundColor: 'rgba(10, 15, 29, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 999,
   },
   androidTabBarBackground: {
     ...StyleSheet.absoluteFillObject,

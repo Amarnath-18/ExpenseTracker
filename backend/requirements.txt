@@ -9,7 +9,7 @@ pyjwt
 passlib[bcrypt]
 rq
 redis
-pytesseract
+rapidocr_onnxruntime
 pillow
 langchain
 langchain-core

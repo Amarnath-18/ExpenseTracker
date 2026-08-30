@@ -3,8 +3,10 @@ set -e
 
 export PYTHONUNBUFFERED=1
 
-echo "==> Running Alembic database migrations..."
-alembic upgrade head
+if [ "$1" != "rq" ]; then
+    echo "==> Running Alembic database migrations..."
+    alembic upgrade head
+fi
 
 # Start background RQ worker if not already running an explicit worker command
 if [ "$1" != "rq" ] && [ "${DISABLE_BACKGROUND_WORKER:-false}" != "true" ]; then

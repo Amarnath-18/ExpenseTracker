@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.spendpulse.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0A0F1D",
         "foregroundImage": "./assets/android-icon-foreground.png"
@@ -26,8 +27,10 @@
       [
         "expo-share-intent",
         {
+          "androidIntentFilters": ["image/*", "text/*"],
+          "androidMultiIntentFilters": ["image/*"],
           "android": {
-            "launchMode": "singleTask"
+            "package": "com.spendpulse.app"
           }
         }
       ]

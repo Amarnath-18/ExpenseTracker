@@ -1,9 +1,9 @@
-import React, { useState, useEffect, createContext, useMemo } from 'react';
+import React, { useState, useEffect, createContext, useMemo, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
-import { ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Platform, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,6 +144,8 @@ function RootApp() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
   const { showModal } = useModal();
 
+  const isProcessingShareIntent = useRef(false);
+
   const authContext = useMemo(
     () => ({
       signIn: async (token, refreshToken) => {
@@ -181,7 +183,11 @@ function RootApp() {
 
   useEffect(() => {
     const handleShareIntent = async () => {
-      if (!hasShareIntent) return;
+      if (!hasShareIntent || isLoading) return;
+      
+      // Prevent double execution race condition
+      if (isProcessingShareIntent.current) return;
+      isProcessingShareIntent.current = true;
 
       if (!userToken) {
         showModal({
@@ -190,18 +196,30 @@ function RootApp() {
           type: 'error',
         });
         resetShareIntent();
+        isProcessingShareIntent.current = false;
         return;
       }
 
-      if (shareIntent?.value?.[0]) {
+      const sharedFile =
+        (shareIntent?.files && shareIntent.files[0]) ||
+        (Array.isArray(shareIntent?.value) && shareIntent.value[0]) ||
+        (shareIntent?.value && typeof shareIntent.value === 'object' ? shareIntent.value : null);
+
+      const uri =
+        sharedFile?.contentUri ||
+        sharedFile?.path ||
+        (typeof shareIntent?.value === 'string' &&
+        (shareIntent.value.startsWith('file://') || shareIntent.value.startsWith('content://'))
+          ? shareIntent.value
+          : null);
+
+      if (uri) {
         try {
           setIsUploadingShared(true);
-          const file = shareIntent.value[0];
-          // Use contentUri if available, otherwise file path
-          const uri = file.contentUri || file.path;
-          if (!uri) throw new Error("Could not read shared file");
-          
-          await uploadReceiptAsync(uri, file.mimeType || 'image/jpeg', file.fileName || 'shared_receipt.jpg');
+          const mimeType = sharedFile?.mimeType || 'image/jpeg';
+          const fileName = sharedFile?.fileName || `shared_receipt_${Date.now()}.jpg`;
+
+          await uploadReceiptAsync(uri, mimeType, fileName);
           showModal({
             title: 'Success',
             message: 'Shared image uploaded successfully and is being processed.',
@@ -217,14 +235,19 @@ function RootApp() {
         } finally {
           setIsUploadingShared(false);
           resetShareIntent();
+          // Short delay before unlocking to ensure state updates propagate
+          setTimeout(() => {
+            isProcessingShareIntent.current = false;
+          }, 500);
         }
       } else {
         resetShareIntent();
+        isProcessingShareIntent.current = false;
       }
     };
 
     handleShareIntent();
-  }, [hasShareIntent, shareIntent, userToken]);
+  }, [hasShareIntent, shareIntent, userToken, isLoading]);
 
   return (
     <AuthContext.Provider value={authContext}>
